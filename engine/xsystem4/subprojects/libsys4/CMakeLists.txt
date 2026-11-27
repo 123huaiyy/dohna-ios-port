@@ -49,6 +49,7 @@ target_sources(sys4 PRIVATE
   src/system.c
   src/utfsjis.c
   src/webp.c
+  src/zlib.c
   )
 
 FLEX_TARGET(ini_lexer src/ini_lexer.l  ${CMAKE_CURRENT_BINARY_DIR}/ini_lexer.yy.c)

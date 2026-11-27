@@ -65,6 +65,7 @@ system4 = ['src/aar.c',
            'src/system.c',
            'src/utfsjis.c',
            'src/webp.c',
+           'src/zlib.c',
 ]
 
 system4 += flexgen.process('src/ini_lexer.l')
