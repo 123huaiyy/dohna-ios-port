@@ -1,0 +1,9 @@
+.aether/
+.devtools/
+.godot/
+ios_game_payload/
+out/
+*.ipa
+*.zip
+.DS_Store
+Thumbs.db

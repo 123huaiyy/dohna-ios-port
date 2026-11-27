@@ -1,0 +1,216 @@
+cmake_minimum_required(VERSION 3.28)
+if(DEFINED ENV{AETHERKIRI_XSYSTEM4_DIR} AND NOT "$ENV{AETHERKIRI_XSYSTEM4_DIR}" STREQUAL "")
+    get_filename_component(AETHERKIRI_XSYSTEM4_DIR "$ENV{AETHERKIRI_XSYSTEM4_DIR}" ABSOLUTE)
+elseif(NOT DEFINED AETHERKIRI_XSYSTEM4_DIR)
+    get_filename_component(AETHERKIRI_XSYSTEM4_DIR "${CMAKE_CURRENT_LIST_DIR}/../../packages/AetherSystem4" ABSOLUTE)
+endif()
+if(NOT EXISTS "${AETHERKIRI_XSYSTEM4_DIR}/src/embedded.c")
+    message(FATAL_ERROR "Initialize AETHERKIRI_XSYSTEM4_DIR (packages/AetherSystem4) and its libsys4 submodule")
+endif()
+message(STATUS "Using xsystem4 runtime dir: ${AETHERKIRI_XSYSTEM4_DIR}")
+
+find_package(SDL2 CONFIG REQUIRED)
+find_package(SDL2_image CONFIG REQUIRED)
+find_package(Freetype REQUIRED)
+find_package(SndFile CONFIG REQUIRED)
+find_package(cglm CONFIG REQUIRED)
+find_package(unofficial-libffi CONFIG REQUIRED)
+find_package(uchardet CONFIG REQUIRED)
+find_package(libjpeg-turbo CONFIG REQUIRED)
+find_package(ZLIB REQUIRED)
+find_package(FFMPEG REQUIRED)
+find_package(Threads REQUIRED)
+if(APPLE)
+    # Keep any debug/optimized qualifier attached to a link item. The
+    # Threads target supplies the platform's thread flags, if needed.
+    list(TRANSFORM FFMPEG_LIBRARIES REPLACE "^-pthread$" "Threads::Threads")
+endif()
+find_package(FLEX REQUIRED)
+find_package(BISON REQUIRED)
+set(CMAKE_DISABLE_FIND_PACKAGE_libdeflate TRUE)
+add_subdirectory("${AETHERKIRI_XSYSTEM4_DIR}/subprojects/libsys4" "${CMAKE_CURRENT_BINARY_DIR}/libsys4")
+
+# libsys4 assumes a static TurboJPEG target, but Linux triplets export the
+# shared target. Adapt both the archive's direct and transitive dependencies.
+foreach(property LINK_LIBRARIES INTERFACE_LINK_LIBRARIES)
+    get_target_property(value sys4 ${property})
+    string(REPLACE "libjpeg-turbo::turbojpeg-static"
+        "$<IF:$<TARGET_EXISTS:libjpeg-turbo::turbojpeg>,libjpeg-turbo::turbojpeg,libjpeg-turbo::turbojpeg-static>"
+        value "${value}")
+    set_property(TARGET sys4 PROPERTY ${property} "${value}")
+endforeach()
+
+set(generated "${CMAKE_CURRENT_BINARY_DIR}/generated")
+file(MAKE_DIRECTORY "${generated}")
+
+# Route sys_exit -> xsystem4_host_exit (supports both exit(code); and USADA-KARROT _exit(code);).
+set(system_path "${AETHERKIRI_XSYSTEM4_DIR}/subprojects/libsys4/src/system.c")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${system_path}")
+file(READ "${system_path}" system_source)
+string(REPLACE "\r\n" "\n" system_source "${system_source}")
+if(system_source MATCHES "_exit\\(code\\);")
+    string(REPLACE "_exit(code);" "xsystem4_host_exit(code);" system_source "${system_source}")
+elseif(system_source MATCHES "exit\\(code\\);")
+    string(REPLACE "exit(code);" "xsystem4_host_exit(code);" system_source "${system_source}")
+else()
+    message(FATAL_ERROR "libsys4 exit boundary changed")
+endif()
+file(WRITE "${generated}/system.c" "#include \"embedded.h\"\n${system_source}")
+get_target_property(sys4_sources sys4 SOURCES)
+list(FILTER sys4_sources EXCLUDE REGEX "(^|/)src/system\\.c$")
+set_property(TARGET sys4 PROPERTY SOURCES "${sys4_sources};${generated}/system.c")
+target_include_directories(sys4 PRIVATE "${AETHERKIRI_XSYSTEM4_DIR}/include")
+
+# Adapt libsys4 AFA index decompression for both upstream and USADA-KARROT forks.
+set(afa_path "${AETHERKIRI_XSYSTEM4_DIR}/subprojects/libsys4/src/afa.c")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${afa_path}")
+file(READ "${afa_path}" afa_source)
+string(REPLACE "\r\n" "\n" afa_source "${afa_source}")
+set(afa_decompress "zlib_decompress_exact(table, ar->uncompressed_size, buf, ar->compressed_size)")
+set(afa_size "ar->compressed_size = LittleEndian_getDW((uint8_t*)buf, 32) - 16;")
+string(FIND "${afa_source}" "${afa_decompress}" afa_decompress_pos)
+string(FIND "${afa_source}" "${afa_size}" afa_size_pos)
+if(afa_size_pos LESS 0)
+    message(FATAL_ERROR "libsys4 AFA index size boundary changed")
+endif()
+if(NOT afa_decompress_pos LESS 0)
+    string(REPLACE "${afa_decompress}" "aether_afa_decompress_index(f, ar, table, &buf)" afa_source "${afa_source}")
+else()
+    set(afa_uncompress "uncompress(table, &uncompressed_size, buf, ar->compressed_size) != Z_OK")
+    string(FIND "${afa_source}" "${afa_uncompress}" afa_uncompress_pos)
+    if(afa_uncompress_pos LESS 0)
+        message(FATAL_ERROR "libsys4 AFA index boundary changed")
+    endif()
+    string(REGEX REPLACE
+        "unsigned long uncompressed_size = ar->uncompressed_size;[ \t\r\n]*if \\(uncompress\\(table, &uncompressed_size, buf, ar->compressed_size\\) != Z_OK\\)"
+        "if (!aether_afa_decompress_index(f, ar, table, &buf))"
+        afa_source "${afa_source}")
+endif()
+string(REPLACE "${afa_size}" [=[
+	uint32_t info_size = LittleEndian_getDW((uint8_t*)buf, 32);
+	if (info_size < 16 || ar->data_start < 44 ||
+	    ar->data_start > ar->file_size || info_size - 16 > ar->data_start - 44) {
+		*error = ARCHIVE_BAD_ARCHIVE_ERROR;
+		return false;
+	}
+	ar->compressed_size = info_size - 16;]=] afa_source "${afa_source}")
+file(WRITE "${generated}/afa.c" "#include \"afa_index_compat.h\"\n${afa_source}")
+get_target_property(sys4_sources sys4 SOURCES)
+list(FILTER sys4_sources EXCLUDE REGEX "(^|/)src/afa\\.c$")
+set_property(TARGET sys4 PROPERTY SOURCES "${sys4_sources};${generated}/afa.c")
+target_include_directories(sys4 PRIVATE "${CMAKE_CURRENT_LIST_DIR}/src")
+
+set(cg_path "${AETHERKIRI_XSYSTEM4_DIR}/subprojects/libsys4/src/cg.c")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${cg_path}")
+file(READ "${cg_path}" cg_source)
+string(REPLACE "\r\n" "\n" cg_source "${cg_source}")
+set(cg_metrics_signature "bool cg_get_metrics_internal(uint8_t *buf, size_t buf_size, struct cg_metrics *dst)\n{")
+set(cg_load_signature "static struct cg *cg_load_internal(uint8_t *buf, size_t buf_size, struct archive *ar)\n{")
+foreach(signature cg_metrics_signature cg_load_signature)
+    string(FIND "${cg_source}" "${${signature}}" cg_signature_pos)
+    if(cg_signature_pos LESS 0)
+        message(FATAL_ERROR "libsys4 CG decode boundary changed")
+    endif()
+endforeach()
+string(REPLACE "${cg_metrics_signature}"
+    "${cg_metrics_signature}\n\tif (aether_tga_matches(buf, buf_size))\n\t\treturn aether_tga_metrics(buf, buf_size, dst);"
+    cg_source "${cg_source}")
+string(REPLACE "${cg_load_signature}"
+    "${cg_load_signature}\n\tif (aether_tga_matches(buf, buf_size))\n\t\treturn aether_tga_load(buf, buf_size);"
+    cg_source "${cg_source}")
+file(WRITE "${generated}/cg.c" "#include \"tga_compat.h\"\n${cg_source}")
+get_target_property(sys4_sources sys4 SOURCES)
+list(FILTER sys4_sources EXCLUDE REGEX "(^|/)src/cg\\.c$")
+set_property(TARGET sys4 PROPERTY SOURCES "${sys4_sources};${generated}/cg.c")
+
+# Preserve libsys4's ALD optimization workaround on Clang as well as GCC.
+set(ald_path "${AETHERKIRI_XSYSTEM4_DIR}/subprojects/libsys4/src/ald.c")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${ald_path}")
+file(READ "${ald_path}" ald_source)
+string(REPLACE "\r\n" "\n" ald_source "${ald_source}")
+set(ald_gcc_attribute "static int __attribute__((optimize(\"O0\"))) _ald_get")
+string(FIND "${ald_source}" "${ald_gcc_attribute}" ald_attribute_pos)
+if(CMAKE_C_COMPILER_ID MATCHES "Clang" AND NOT ald_attribute_pos EQUAL -1)
+    string(REPLACE "${ald_gcc_attribute}" "static int __attribute__((optnone)) _ald_get"
+        ald_source "${ald_source}")
+    file(CONFIGURE OUTPUT "${generated}/ald.c" CONTENT "${ald_source}" @ONLY)
+    get_target_property(sys4_sources sys4 SOURCES)
+    list(FILTER sys4_sources EXCLUDE REGEX "(^|/)src/ald\\.c$")
+    set_property(TARGET sys4 PROPERTY SOURCES "${sys4_sources};${generated}/ald.c")
+endif()
+target_link_libraries(sys4 PRIVATE
+    $<IF:$<TARGET_EXISTS:SDL2_image::SDL2_image>,SDL2_image::SDL2_image,SDL2_image::SDL2_image-static>)
+target_link_libraries(sys4 PRIVATE $<IF:$<TARGET_EXISTS:SDL2::SDL2>,SDL2::SDL2,SDL2::SDL2-static>)
+set_target_properties(sys4 PROPERTIES POSITION_INDEPENDENT_CODE ON)
+if(APPLE)
+    # The INI lexer's 64 KiB scratch buffer is defined in one translation unit.
+    # A common symbol lets ld infer an alignment larger than the Mach-O segment.
+    set_property(SOURCE "${CMAKE_CURRENT_BINARY_DIR}/libsys4/ini_lexer.yy.c"
+        TARGET_DIRECTORY sys4 APPEND PROPERTY COMPILE_OPTIONS -fno-common)
+    find_library(core_foundation CoreFoundation REQUIRED)
+    # The GDExtension's mixed Swift/C++ link needs driver-neutral framework
+    # paths, rather than libsys4's standalone clang flag spelling.
+    foreach(property LINK_LIBRARIES INTERFACE_LINK_LIBRARIES)
+        get_target_property(value sys4 ${property})
+        string(REPLACE "-framework CoreFoundation" "${core_foundation}" value "${value}")
+        set_property(TARGET sys4 PROPERTY ${property} "${value}")
+    endforeach()
+endif()
+
+file(GLOB_RECURSE sources CONFIGURE_DEPENDS "${AETHERKIRI_XSYSTEM4_DIR}/src/*.c")
+list(FILTER sources EXCLUDE REGEX "/(system4|movie_plmpeg|debugger|debugger_scm|debug-ffi)\\.c$")
+list(FILTER sources EXCLUDE REGEX "/src/debug[^/]*\\.c$")
+set(VCS_TAG "aether-native-dohna-v14")
+configure_file("${AETHERKIRI_XSYSTEM4_DIR}/src/version.h.in" "${generated}/version.h")
+file(GLOB_RECURSE shaders CONFIGURE_DEPENDS RELATIVE "${AETHERKIRI_XSYSTEM4_DIR}" "${AETHERKIRI_XSYSTEM4_DIR}/shaders/*.glsl")
+set(resources "#pragma once\nstruct Xsystem4Shader { const char *path; const char *source; };\nstatic const Xsystem4Shader xsystem4_shaders[] = {\n")
+foreach(shader IN LISTS shaders)
+    file(READ "${AETHERKIRI_XSYSTEM4_DIR}/${shader}" source)
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${AETHERKIRI_XSYSTEM4_DIR}/${shader}")
+    string(APPEND resources "{\"${shader}\", R\"XS4SHADER(${source})XS4SHADER\"},\n")
+endforeach()
+file(WRITE "${generated}/shader_resources.h" "${resources}};\n")
+
+add_library(aether_xsystem4_runtime STATIC src/xsystem4_runtime_provider.cpp ${sources})
+target_compile_features(aether_xsystem4_runtime PRIVATE cxx_std_17)
+target_compile_definitions(aether_xsystem4_runtime PRIVATE _DEFAULT_SOURCE XSYSTEM4_EMBEDDED SDL_MAIN_HANDLED XSYS4_DATA_DIR="" VCS_TAG="aether")
+if(APPLE)
+    target_compile_definitions(aether_xsystem4_runtime PRIVATE GL_SILENCE_DEPRECATION)
+    if(IOS)
+        target_compile_definitions(aether_xsystem4_runtime PRIVATE GLES_SILENCE_DEPRECATION)
+    endif()
+endif()
+target_include_directories(aether_xsystem4_runtime PUBLIC "${CMAKE_CURRENT_LIST_DIR}/include" PRIVATE
+    "${CMAKE_CURRENT_LIST_DIR}/../../abi/include" "${AETHERKIRI_XSYSTEM4_DIR}/include" "${generated}" ${FFMPEG_INCLUDE_DIRS})
+target_link_libraries(aether_xsystem4_runtime PRIVATE sys4
+    $<IF:$<TARGET_EXISTS:SDL2::SDL2>,SDL2::SDL2,SDL2::SDL2-static>
+    Freetype::Freetype SndFile::sndfile cglm::cglm unofficial::libffi::libffi
+    Threads::Threads uchardet::libuchardet ZLIB::ZLIB ${FFMPEG_LIBRARIES})
+set_target_properties(aether_xsystem4_runtime PROPERTIES POSITION_INDEPENDENT_CODE ON)
+if(APPLE)
+    target_sources(aether_xsystem4_runtime PRIVATE src/offscreen_context_apple.mm)
+    set_source_files_properties(src/offscreen_context_apple.mm PROPERTIES LANGUAGE CXX COMPILE_FLAGS "-x objective-c++ -fobjc-arc -Wno-deprecated-declarations")
+    if(IOS)
+        target_compile_definitions(aether_xsystem4_runtime PRIVATE USE_GLES)
+        find_library(gl_framework OpenGLES REQUIRED)
+    else()
+        find_library(gl_framework OpenGL REQUIRED)
+    endif()
+    target_link_libraries(aether_xsystem4_runtime PRIVATE "${gl_framework}" iconv)
+elseif(ANDROID OR UNIX)
+    target_sources(aether_xsystem4_runtime PRIVATE src/offscreen_context_egl.cpp)
+    target_compile_definitions(aether_xsystem4_runtime PRIVATE USE_GLES)
+    if(ANDROID)
+        target_link_libraries(aether_xsystem4_runtime PRIVATE EGL GLESv3 log)
+    else()
+        find_library(egl_library EGL REQUIRED)
+        find_library(gles_library GLESv2 REQUIRED)
+        target_link_libraries(aether_xsystem4_runtime PRIVATE "${egl_library}" "${gles_library}")
+    endif()
+else()
+    message(FATAL_ERROR "xsystem4 native host requires Apple, Linux or Android")
+endif()
+
+if(TARGET engine_api)
+    target_link_libraries(aether_xsystem4_runtime PRIVATE engine_api)
+endif()

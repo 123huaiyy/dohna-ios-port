@@ -1,0 +1,190 @@
+name: Build Dohna Dohna iOS IPA
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: Aether iOS build configuration
+        type: choice
+        options:
+          - release
+          - debug
+        default: release
+      runner:
+        description: macOS GitHub Actions runner label
+        type: string
+        default: macos-26
+
+env:
+  GODOT_RELEASE: 4.7.2-stable
+  GODOT_TEMPLATE_VERSION: 4.7.2.stable
+  AETHERKIRI_WITH_INTERNAL: "false"
+  AETHERKIRI_ENABLE_INTERNAL: "false"
+  CCACHE_DIR: ${{ github.workspace }}/.ci-cache/ccache
+  VCPKG_DOWNLOADS: ${{ github.workspace }}/.ci-cache/vcpkg-downloads
+  VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/.ci-cache/vcpkg-binaries
+  VCPKG_DISABLE_METRICS: "1"
+
+jobs:
+  build-ios-ipa:
+    runs-on: ${{ inputs.runner || 'macos-26' }}
+    timeout-minutes: 240
+    steps:
+      - name: Check Xcode and iOS SDK
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+
+      - name: Checkout Dohna iOS Port
+        uses: actions/checkout@v4
+        with:
+          path: port
+
+      - name: Checkout AetherKiri/Aether
+        uses: actions/checkout@v4
+        with:
+          repository: AetherKiri/Aether
+          path: aether
+          submodules: false
+
+      - name: Set up .NET for Aether N2System runtime
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Set up Rust for iOS target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim
+          components: llvm-tools
+
+      - name: Install native build dependencies
+        run: |
+          missing=()
+          for formula in cmake ninja pkgconf autoconf automake autoconf-archive libtool gettext coreutils bison nasm ccache mono; do
+            if ! brew list --versions "$formula" >/dev/null; then
+              missing+=("$formula")
+            fi
+          done
+          if ((${#missing[@]})); then
+            brew install "${missing[@]}"
+          fi
+          echo "$(brew --prefix gettext)/bin" >> "$GITHUB_PATH"
+          echo "$(brew --prefix bison)/bin" >> "$GITHUB_PATH"
+
+      - name: Install Godot 4.7.2 and iOS export template
+        run: |
+          set -euo pipefail
+          mkdir -p aether/.godot
+          curl --fail --location --retry 5 --retry-delay 5 \
+            -o "${RUNNER_TEMP}/godot-macos.zip" \
+            "https://github.com/godotengine/godot-builds/releases/download/${GODOT_RELEASE}/Godot_v${GODOT_RELEASE}_macos.universal.zip"
+          unzip -q "${RUNNER_TEMP}/godot-macos.zip" -d aether/.godot
+          chmod +x "aether/.godot/Godot.app/Contents/MacOS/Godot"
+          rm -f "${RUNNER_TEMP}/godot-macos.zip"
+
+          curl --fail --location --retry 5 --retry-delay 5 \
+            -o "${RUNNER_TEMP}/godot-export-templates.tpz" \
+            "https://github.com/godotengine/godot-builds/releases/download/${GODOT_RELEASE}/Godot_v${GODOT_RELEASE}_export_templates.tpz"
+          template_dir="${HOME}/Library/Application Support/Godot/export_templates/${GODOT_TEMPLATE_VERSION}"
+          mkdir -p "${template_dir}"
+          unzip -p "${RUNNER_TEMP}/godot-export-templates.tpz" templates/ios.zip > "${template_dir}/ios.zip"
+          rm -f "${RUNNER_TEMP}/godot-export-templates.tpz"
+
+          echo "GODOT_BIN=${GITHUB_WORKSPACE}/aether/.godot/Godot.app/Contents/MacOS/Godot" >> "$GITHUB_ENV"
+          echo "GODOT_EXPORT_TEMPLATE=${template_dir}/ios.zip" >> "$GITHUB_ENV"
+
+      - name: Initialize Aether public submodules and restore caches
+        working-directory: aether
+        run: |
+          set -euo pipefail
+          git -c url.https://github.com/.insteadOf=git@github.com: submodule update --init --depth 1 \
+            packages/AetherONScripterYuri \
+            packages/AetherSiglus \
+            packages/AetherMinori \
+            packages/AetherCMVS \
+            packages/AetherEntisGLS \
+            packages/AetherKrkr \
+            packages/AetherMAGES \
+            packages/AetherSystem4 \
+            packages/rfvp \
+            packages/ruffle
+          git -c url.https://github.com/.insteadOf=git@github.com: submodule update --init --recursive --depth 1 \
+            packages/psdfile \
+            packages/AetherN2System \
+            packages/AetherSystem35 \
+            packages/AetherSystem3
+
+          ccache --max-size=1G || true
+          ccache -z || true
+
+      - name: Restore vcpkg downloads cache
+        id: restore-vcpkg-downloads
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.VCPKG_DOWNLOADS }}
+          key: ${{ runner.os }}-${{ runner.arch }}-vcpkg-dl-${{ hashFiles('aether/vcpkg-configuration.json', 'aether/vcpkg.json', 'aether/vcpkg/ports/**', 'aether/vcpkg/triplets/**') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-vcpkg-dl-
+
+      - name: Restore vcpkg binary cache
+        id: restore-vcpkg-binaries
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: ${{ runner.os }}-${{ runner.arch }}-ios-vcpkg-bin-${{ hashFiles('aether/vcpkg-configuration.json', 'aether/vcpkg.json', 'aether/vcpkg/ports/**', 'aether/vcpkg/triplets/**') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-ios-vcpkg-bin-
+
+      - name: Restore ccache
+        id: restore-ccache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ${{ runner.os }}-${{ runner.arch }}-ios-ccache-${{ hashFiles('aether/CMakeLists.txt', 'aether/bridge/**', 'port/**') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-ios-ccache-
+
+      - name: Bootstrap vcpkg
+        working-directory: aether
+        run: |
+          set -euo pipefail
+          mkdir -p "${VCPKG_DOWNLOADS}" "${VCPKG_DEFAULT_BINARY_CACHE}" "${CCACHE_DIR}"
+          git clone --depth 1 https://github.com/microsoft/vcpkg.git .devtools/vcpkg
+          python3 .github/scripts/bootstrap-ci-vcpkg.py .devtools/vcpkg
+
+      - name: Build unsigned iOS IPA with patched v14 xsystem4 runtime
+        env:
+          BUILD_TYPE: ${{ inputs.build_type || 'release' }}
+        run: |
+          set -euo pipefail
+          chmod +x port/scripts/build_dohna_ios.sh
+          port/scripts/build_dohna_ios.sh "${GITHUB_WORKSPACE}/aether"
+
+      - name: Save vcpkg downloads cache
+        if: always() && !cancelled() && steps.restore-vcpkg-downloads.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.VCPKG_DOWNLOADS }}
+          key: ${{ runner.os }}-${{ runner.arch }}-vcpkg-dl-${{ hashFiles('aether/vcpkg-configuration.json', 'aether/vcpkg.json', 'aether/vcpkg/ports/**', 'aether/vcpkg/triplets/**') }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Save vcpkg binary cache
+        if: always() && !cancelled() && steps.restore-vcpkg-binaries.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: ${{ runner.os }}-${{ runner.arch }}-ios-vcpkg-bin-${{ hashFiles('aether/vcpkg-configuration.json', 'aether/vcpkg.json', 'aether/vcpkg/ports/**', 'aether/vcpkg/triplets/**') }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Save ccache
+        if: always() && !cancelled() && steps.restore-ccache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ${{ runner.os }}-${{ runner.arch }}-ios-ccache-${{ hashFiles('aether/CMakeLists.txt', 'aether/bridge/**', 'port/**') }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Upload unsigned IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dohna-aether-ios-${{ inputs.build_type || 'release' }}-unsigned-ipa
+          path: aether/out/godot/ios/${{ inputs.build_type || 'release' }}/Aether-*-Unsigned.ipa
+          retention-days: 14

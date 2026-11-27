@@ -1,0 +1,1742 @@
+diff --git a/include/audio.h b/include/audio.h
+index 6da31f8..891f14a 100644
+--- a/include/audio.h
++++ b/include/audio.h
+@@ -22,6 +22,7 @@
+ struct archive_data;
+ 
+ void audio_init(void);
++void audio_fini(void);
+ void audio_reset(void);
+ void audio_update(void);
+ bool audio_play_sound(int sound_no);
+diff --git a/include/embedded.h b/include/embedded.h
+new file mode 100644
+index 0000000..945c46e
+--- /dev/null
++++ b/include/embedded.h
+@@ -0,0 +1,50 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++/* Native embedding hooks. The host owns its window, GL context and input queue. */
++#ifndef XSYSTEM4_EMBEDDED_H
++#define XSYSTEM4_EMBEDDED_H
++
++#include <stdint.h>
++#include <SDL.h>
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++struct xsystem4_host {
++	void *user;
++	int (*init_graphics)(void *user, int width, int height);
++	unsigned (*framebuffer)(void *user);
++	void (*present)(void *user, int width, int height);
++	int (*poll_event)(void *user, SDL_Event *event);
++	void (*mouse_position)(void *user, int *x, int *y, int set);
++	int (*checkpoint)(void *user);
++	const char *(*shader)(void *user, const char *path);
++	void (*log)(void *user, const char *message);
++	void (*text_input)(void *user, int active);
++	// Normal script completion, including nonzero process exit codes.
++	void (*game_exit)(void *user, int code);
++};
++
++int xsystem4_host_run(const struct xsystem4_host *host, const char *game,
++		const char *save_directory, const char *font, const char *encoding);
++void xsystem4_host_checkpoint(void);
++int xsystem4_host_poll_event(SDL_Event *event);
++void xsystem4_host_mouse_position(int *x, int *y, int set);
++const char *xsystem4_host_shader(const char *path);
++int xsystem4_host_init_graphics(int width, int height);
++unsigned xsystem4_host_framebuffer(void);
++void xsystem4_host_present(int width, int height);
++void xsystem4_host_text_input(int active);
++void xsystem4_host_vm_started(void);
++void xsystem4_host_vm_closed(void);
++void xsystem4_host_game_exit(int code);
++#ifdef __cplusplus
++[[noreturn]] void xsystem4_host_exit(int code);
++#else
++_Noreturn void xsystem4_host_exit(int code);
++#endif
++
++#ifdef __cplusplus
++}
++#endif
++#endif
+diff --git a/include/gfx/font.h b/include/gfx/font.h
+index 8cb4b20..ff13f3d 100644
+--- a/include/gfx/font.h
++++ b/include/gfx/font.h
+@@ -69,6 +69,7 @@ struct font {
+ 	bool (*get_glyph)(struct font_size *size, struct glyph *dst, uint32_t code, enum font_weight weight);
+ 	float (*size_char)(struct font_size *size, uint32_t code);
+ 	float (*size_char_kerning)(struct font_size *size, uint32_t code, uint32_t code_next);
++	void (*destroy)(struct font *font);
+ };
+ 
+ struct text_style {
+@@ -139,7 +140,10 @@ int gfx_text_cn_width(int size, uint8_t lead);
+ int gfx_text_cn_style_edge(struct text_style *ts);
+ 
+ void gfx_font_init(void);
++void gfx_font_fini(void);
++void gfx_font_size_fini(struct font_size *size);
+ void ft_font_init(void);
++void ft_font_fini(void);
+ struct font *ft_font_load(const char *path);
+ struct font *fnl_font_load(struct fnl *lib, unsigned index);
+ 
+diff --git a/include/gfx/gfx.h b/include/gfx/gfx.h
+index 3c48025..1cd65c2 100644
+--- a/include/gfx/gfx.h
++++ b/include/gfx/gfx.h
+@@ -47,8 +47,8 @@ typedef struct shader {
+ 	GLuint world_transform;
+ 	GLuint view_transform;
+ 	GLuint texture;
+-	GLuint vertex_pos;
+-	GLuint vertex_uv;
++	GLint vertex_pos;
++	GLint vertex_uv;
+ 	void (*prepare)(struct gfx_render_job *, void *);
+ } Shader;
+ 
+diff --git a/include/gfx/gl.h b/include/gfx/gl.h
+index c436c74..128020b 100644
+--- a/include/gfx/gl.h
++++ b/include/gfx/gl.h
+@@ -18,7 +18,13 @@
+ #define SYSTEM4_GFX_GL_H
+ 
+ #ifdef USE_GLES
++#if defined(__APPLE__)
++#include <OpenGLES/ES3/gl.h>
++#else
+ #include <GLES3/gl3.h>
++#endif
++#elif defined(__APPLE__) && defined(XSYSTEM4_EMBEDDED)
++#include <OpenGL/gl3.h>
+ #else
+ #include <GL/glew.h>
+ #endif
+diff --git a/include/mixer.h b/include/mixer.h
+index 89ca412..02691c9 100644
+--- a/include/mixer.h
++++ b/include/mixer.h
+@@ -41,6 +41,9 @@ void wai_load(const char *path);
+ struct wai *wai_get(int no);
+ 
+ void mixer_init(void);
++void mixer_fini(void);
++void audio_meta_fini(void);
++void xsystem4_audio_pause(bool paused);
+ int mixer_get_numof(void);
+ const char *mixer_get_name(int n);
+ int mixer_set_name(int n, const char *name);
+diff --git a/src/asset_manager.c b/src/asset_manager.c
+index 9e438a0..c909597 100644
+--- a/src/asset_manager.c
++++ b/src/asset_manager.c
+@@ -66,6 +66,7 @@ struct asset_manager {
+ 	bool (*exists_by_name)(struct asset_manager *manager, const char *name, int *id_out);
+ 	struct archive_data *(*get_by_id)(struct asset_manager *manager, int id);
+ 	struct archive_data *(*get_by_name)(struct asset_manager *manager, const char *name, int *id_out);
++	void (*free)(struct asset_manager *manager);
+ };
+ 
+ // XXX: also used for AFAv1 in Daiteikoku, Shaman's Sanctuary
+@@ -444,6 +445,22 @@ bool asset_sound_info_by_entry(enum asset_type type, const char *entry_name, str
+ 	return sound_info_lookup(type, entry_name, dot ? (size_t)(dot - entry_name) : strlen(entry_name), out);
+ }
+ 
++static void ald_manager_free(struct asset_manager *_manager)
++{
++	struct asset_manager_ald *manager = (struct asset_manager_ald*)_manager;
++	if (manager->archive)
++		archive_free(manager->archive);
++	free(manager);
++}
++
++static void afa_manager_free(struct asset_manager *_manager)
++{
++	struct asset_manager_afa *manager = (struct asset_manager_afa*)_manager;
++	for (int i = 0; i < MAX_ARCHIVES && manager->archives[i]; i++)
++		archive_free(&manager->archives[i]->ar);
++	free(manager);
++}
++
+ static void _ald_init(enum asset_type type, struct archive *ar)
+ {
+ 	struct asset_manager_ald *manager = xcalloc(1, sizeof(struct asset_manager_ald));
+@@ -452,6 +469,7 @@ static void _ald_init(enum asset_type type, struct archive *ar)
+ 	manager->manager.load_archive = NULL;
+ 	manager->manager.exists_by_name = NULL;
+ 	manager->manager.get_by_name = NULL;
++	manager->manager.free = ald_manager_free;
+ 	manager->archive = ar;
+ 	assets[type] = &manager->manager;
+ }
+@@ -493,6 +511,7 @@ static void afa_init(enum asset_type type, char *file)
+ 	manager->manager.get_by_id = afa_get_by_id;
+ 	manager->manager.exists_by_name = afa_exists_by_name;
+ 	manager->manager.get_by_name = afa_get_by_name;
++	manager->manager.free = afa_manager_free;
+ 	manager->archives[0] = ar;
+ 	assets[type] = &manager->manager;
+ 
+@@ -629,3 +648,18 @@ void asset_manager_init(void)
+ 	afa_init(ASSET_DATA, afa_filenames[ASSET_DATA]);
+ 	afa_init(ASSET_FLASH, afa_filenames[ASSET_FLASH]);
+ }
++
++void asset_manager_fini(void)
++{
++	for (int i = 0; i < ASSET_TYPE_MAX; i++) {
++		if (assets[i]) {
++			if (assets[i]->free)
++				assets[i]->free(assets[i]);
++			assets[i] = NULL;
++		}
++		if (sound_info_maps[i].rows)
++			ht_free(sound_info_maps[i].rows);
++		free(sound_info_maps[i].info);
++		memset(&sound_info_maps[i], 0, sizeof(sound_info_maps[i]));
++	}
++}
+diff --git a/src/audio.c b/src/audio.c
+index 52b5bb4..89a8885 100644
+--- a/src/audio.c
++++ b/src/audio.c
+@@ -54,9 +54,10 @@ static struct id_pool bgm;
+ #define NR_ANONYMOUS_CHANNELS 64
+ static struct channel *anonymous_channels[NR_ANONYMOUS_CHANNELS];
+ 
++static bool audio_initialized = false;
++
+ void audio_init(void)
+ {
+-	static bool audio_initialized = false;
+ 	if (audio_initialized)
+ 		return;
+ 
+@@ -114,6 +115,19 @@ void audio_reset(void)
+ 	}
+ }
+ 
++void audio_fini(void)
++{
++	if (!audio_initialized)
++		return;
++	audio_reset();
++	audio_se_reset();
++	mixer_fini();
++	id_pool_delete(&wav);
++	id_pool_delete(&bgm);
++	audio_meta_fini();
++	audio_initialized = false;
++}
++
+ void audio_update(void)
+ {
+ 	for (int i = 0; i < NR_ANONYMOUS_CHANNELS; i++) {
+diff --git a/src/audio_meta.c b/src/audio_meta.c
+index edb3875..d32c0ad 100644
+--- a/src/audio_meta.c
++++ b/src/audio_meta.c
+@@ -152,3 +152,11 @@ struct wai *wai_get(int no)
+ 		return NULL;
+ 	return &wai_data[no];
+ }
++
++void audio_meta_fini(void)
++{
++	bgi_nfile = 0;
++	free(wai_data);
++	wai_data = NULL;
++	nr_wai = 0;
++}
+diff --git a/src/audio_mixer.c b/src/audio_mixer.c
+index 59de806..fee3b17 100644
+--- a/src/audio_mixer.c
++++ b/src/audio_mixer.c
+@@ -140,6 +140,7 @@ static struct mixer *mixers = NULL;
+ static int nr_mixers = 0;
+ 
+ static SDL_AudioDeviceID audio_device = 0;
++static bool embedded_audio_initialized = false;
+ 
+ // v14 sound groups (see mixer_init): set once before the device starts.
+ static bool groups_enabled = false;
+@@ -1432,10 +1433,19 @@ void mixer_init(void)
+ 
+ 	// Audio modules can start before video. Reuse an existing subsystem
+ 	// without adding a reference; keep the mixer usable if output is unavailable.
+-	if (!(SDL_WasInit(SDL_INIT_AUDIO) & SDL_INIT_AUDIO)
+-	    && SDL_InitSubSystem(SDL_INIT_AUDIO) < 0) {
+-		WARNING("SDL_InitSubSystem(SDL_INIT_AUDIO) failed: %s", SDL_GetError());
+-		return;
++#ifdef XSYSTEM4_EMBEDDED
++	SDL_SetMainReady();
++#ifdef __ANDROID__
++	// Aether owns the Activity; SDL's Java AudioTrack driver requires SDLActivity.
++	SDL_SetHintWithPriority(SDL_HINT_AUDIODRIVER, "openslES", SDL_HINT_OVERRIDE);
++#endif
++#endif
++	if (!(SDL_WasInit(SDL_INIT_AUDIO) & SDL_INIT_AUDIO)) {
++		if (SDL_InitSubSystem(SDL_INIT_AUDIO) < 0) {
++			WARNING("SDL_InitSubSystem(SDL_INIT_AUDIO) failed: %s", SDL_GetError());
++			return;
++		}
++		embedded_audio_initialized = true;
+ 	}
+ 
+ 	SDL_AudioSpec have;
+@@ -1752,3 +1762,39 @@ int mixer_movie_sound_group(int id)
+ 	}
+ 	return -1;
+ }
++
++void mixer_fini(void)
++{
++	if (audio_device) {
++		SDL_CloseAudioDevice(audio_device);
++		audio_device = 0;
++	}
++	for (int i = 0; i < nr_mixers; i++) {
++		free(mixers[i].name);
++		free(mixers[i].children);
++	}
++	free(mixers);
++	mixers = NULL;
++	master = NULL;
++	nr_mixers = 0;
++	groups_enabled = false;
++	global_focus = false;
++	window_active = true;
++	focus_muted = false;
++	movie_internal_volume = 1.0f;
++	volume_sav_len = -1;
++	memset(volume_sav_bytes, 0, sizeof(volume_sav_bytes));
++	memset(movie_sounds, 0, sizeof(movie_sounds));
++#ifdef XSYSTEM4_EMBEDDED
++	if (embedded_audio_initialized) {
++		SDL_QuitSubSystem(SDL_INIT_AUDIO);
++		embedded_audio_initialized = false;
++	}
++#endif
++}
++
++void xsystem4_audio_pause(bool paused)
++{
++	if (audio_device)
++		SDL_PauseAudioDevice(audio_device, paused);
++}
+diff --git a/src/effect.c b/src/effect.c
+index b3eeedf..ba5370b 100644
+--- a/src/effect.c
++++ b/src/effect.c
+@@ -366,3 +366,14 @@ int effect_fini(void)
+ 	gfx_delete_texture(&effect.view);
+ 	return 1;
+ }
++
++void effect_renderer_fini(void)
++{
++	effect_fini();
++	for (int i = 0; i < NR_EFFECTS; i++) {
++		if (effect_shaders[i] && effect_shaders[i]->s.program) {
++			glDeleteProgram(effect_shaders[i]->s.program);
++			effect_shaders[i]->s.program = 0;
++		}
++	}
++}
+diff --git a/src/embedded.c b/src/embedded.c
+new file mode 100644
+index 0000000..307b51a
+--- /dev/null
++++ b/src/embedded.c
+@@ -0,0 +1,232 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++/* Reuse the upstream config parser without the standalone command-line loop. */
++#define main xsystem4_cli_main
++#include "system4.c"
++#undef main
++#include "embedded.h"
++#include <setjmp.h>
++#include <pthread.h>
++
++void xsystem4_vm_shutdown(void);
++void xsystem4_libraries_destroy(void);
++void asset_manager_fini(void);
++void audio_fini(void);
++void gfx_font_fini(void);
++void input_reset(void);
++
++static _Thread_local const struct xsystem4_host *embedded_host;
++static _Thread_local jmp_buf embedded_exit;
++static _Thread_local int embedded_exit_code;
++static _Thread_local int cleanup_stage;
++static _Thread_local bool vm_running;
++
++void xsystem4_host_vm_started(void) { vm_running = true; }
++void xsystem4_host_vm_closed(void) { vm_running = false; }
++
++void xsystem4_host_game_exit(int code)
++{
++	if (embedded_host && embedded_host->game_exit)
++		embedded_host->game_exit(embedded_host->user, code);
++}
++
++_Noreturn void xsystem4_host_exit(int code)
++{
++	if (!embedded_host)
++		pthread_exit(NULL);
++	embedded_exit_code = code;
++	longjmp(embedded_exit, 1);
++}
++
++void xsystem4_host_checkpoint(void)
++{
++	if (embedded_host && cleanup_stage == 0 &&
++			embedded_host->checkpoint(embedded_host->user))
++		xsystem4_host_exit(0);
++}
++
++int xsystem4_host_poll_event(SDL_Event *event)
++{
++	xsystem4_host_checkpoint();
++	return embedded_host->poll_event(embedded_host->user, event);
++}
++
++void xsystem4_host_mouse_position(int *x, int *y, int set)
++{
++	embedded_host->mouse_position(embedded_host->user, x, y, set);
++}
++
++void xsystem4_host_text_input(int active)
++{
++	if (embedded_host && embedded_host->text_input)
++		embedded_host->text_input(embedded_host->user, active);
++}
++
++const char *xsystem4_host_shader(const char *path)
++{
++	return embedded_host->shader(embedded_host->user, path);
++}
++
++int xsystem4_host_init_graphics(int width, int height)
++{
++	return embedded_host->init_graphics(embedded_host->user, width, height);
++}
++
++unsigned xsystem4_host_framebuffer(void)
++{
++	return embedded_host->framebuffer(embedded_host->user);
++}
++
++void xsystem4_host_present(int width, int height)
++{
++	embedded_host->present(embedded_host->user, width, height);
++	xsystem4_host_checkpoint();
++}
++
++static void embedded_error(const char *message)
++{
++	if (embedded_host && embedded_host->log)
++		embedded_host->log(embedded_host->user, message);
++}
++
++static void config_free(void)
++{
++	free(config.game_name);
++	free(config.boot_name);
++	free(config.ain_filename);
++	free(config.vm_name);
++	free(config.game_dir);
++	free(config.save_dir);
++	free(config.home_dir);
++	free(config.bgi_path);
++	free(config.wai_path);
++	free(config.ex_path);
++	free(config.fnl_path);
++	for (int i = 0; i < 2; i++) free(config.font_paths[i]);
++	for (size_t i = 0; i < config.mixer_nr_channels; i++) free(config.mixer_channels[i]);
++	free(config.mixer_channels);
++	free(config.mixer_volumes);
++	free(save_folder_name);
++	save_folder_name = NULL;
++	save_dir_from_user = false;
++	view_width_from_ini = false;
++	view_height_from_ini = false;
++	game_encoding = ENCODING_AUTO;
++	ain_is_gb18030 = false;
++	sys4_set_string_charset(SYS4_CHARSET_SJIS);
++	config = (struct config){ .view_width = 800, .view_height = 600,
++		.default_volume = 100, .text_x_scale = 1.0f, .save_format = SAVE_FORMAT_RSM };
++}
++
++static bool embedded_config(const char *game)
++{
++	const char *names[] = { "System40.ini", "AliceStart.ini" };
++	for (unsigned i = 0; i < sizeof(names) / sizeof(*names); i++) {
++		char *candidate = path_join(game, names[i]);
++		char *path = path_get_icase(candidate);
++		free(candidate);
++		if (!path) continue;
++		bool loaded = config_init_with_ini(path);
++		free(path);
++		return loaded;
++	}
++	return false;
++}
++
++int xsystem4_host_run(const struct xsystem4_host *host, const char *game,
++		const char *save_directory, const char *font, const char *encoding)
++{
++	embedded_host = host;
++	embedded_exit_code = 0;
++	cleanup_stage = 0;
++	vm_running = false;
++	sys_error_handler = embedded_error;
++	ain_is_gb18030 = false;
++	sys4_set_string_charset(SYS4_CHARSET_SJIS);
++	game_encoding = ENCODING_AUTO;
++	save_dir_from_user = false;
++	view_width_from_ini = false;
++	view_height_from_ini = false;
++	if (!setjmp(embedded_exit)) {
++		if (!embedded_config(game))
++			ERROR("No System40.ini or AliceStart.ini in %s", game);
++		free(config.home_dir);
++		config.home_dir = xstrdup(save_directory);
++		read_user_config();
++		if (encoding && *encoding && !set_encoding(encoding))
++			ERROR("Unsupported text encoding: %s", encoding);
++		free(config.save_dir);
++		config.save_dir = xstrdup(save_directory);
++		if (font && *font) {
++			for (int i = 0; i < 2; i++) {
++				if (!config.font_paths[i]) config.font_paths[i] = xstrdup(font);
++			}
++		}
++		int error;
++		char *path = gamedir_path_icase(config.ain_filename);
++		if (!path) ERROR("AIN script does not exist: %s", config.ain_filename);
++		ain = ain_open(path, &error);
++		free(path);
++		if (!ain) ERROR("%s", ain_strerror(error));
++
++		int parts_lib = ain_get_library(ain, "PartsEngine");
++		if (ain->version >= 14 && parts_lib >= 0
++				&& ain_get_library_function(ain, parts_lib, "SeekMessage") >= 0) {
++			if (!view_width_from_ini)
++				config.view_width = 1280;
++			if (!view_height_from_ini)
++				config.view_height = 720;
++		}
++		if (config.view_width < 1 || config.view_height < 1 ||
++				config.view_width > 8192 || config.view_height > 8192)
++			ERROR("Invalid game resolution");
++
++		struct gb18030_scores sc;
++		bool strict = gb18030_detect_strings(ain->strings, ain->nr_strings, &sc);
++		if (game_encoding == ENCODING_GBK) {
++			gbk_string_rules_enable();
++			WARNING("encoding=gbk: Chinese text support and GBK string rules enabled");
++		} else if (game_encoding == ENCODING_SJIS) {
++			WARNING("encoding=sjis: Shift-JIS text (strict GB18030 check: %d)", strict);
++		} else if (strict) {
++			gbk_string_rules_enable();
++			WARNING("Detected GB18030 encoding in AIN (score=%d), enabling Chinese text support", sc.legacy);
++			WARNING("GBK string rules enabled (boundary=%d, sjis_invalid=%d, utf8=%d/%d)",
++				sc.boundary, sc.sjis_invalid, sc.utf8_valid, sc.nonascii);
++		}
++		const char *charset_override = getenv("XSYS4_STRING_CHARSET");
++		if (charset_override && *charset_override) {
++			if (!strcmp(charset_override, "sjis") || !strcmp(charset_override, "gbk")) {
++				bool gbk = !strcmp(charset_override, "gbk");
++				sys4_set_string_charset(gbk ? SYS4_CHARSET_GBK : SYS4_CHARSET_SJIS);
++				WARNING("XSYS4_STRING_CHARSET=%s: String character rules forced to %s (ain_is_gb18030=%d)",
++					charset_override, gbk ? "GBK" : "SJIS", ain_is_gb18030);
++			}
++		}
++
++		mkdir_p(config.save_dir);
++		apply_game_specific_hacks(ain);
++		if (config.msgskip_delay)
++			set_msgskip_delay(ain, config.msgskip_delay);
++		asset_manager_init();
++		embedded_exit_code = vm_execute_ain(ain);
++		xsystem4_host_game_exit(embedded_exit_code);
++	}
++	/* Advance before each cleanup: a fatal module finalizer must not recurse. */
++	while (cleanup_stage < 8) {
++		switch (cleanup_stage++) {
++		case 0:
++			if (vm_running) { vm_running = false; xsystem4_vm_shutdown(); }
++			break;
++		case 1: audio_fini(); break;
++		case 2: xsystem4_libraries_destroy(); break;
++		case 3: gfx_font_fini(); break;
++		case 4: gfx_fini(); break;
++		case 5: asset_manager_fini(); break;
++		case 6: if (ain) ain_free(ain); ain = NULL; break;
++		case 7: config_free(); input_reset(); break;
++		}
++	}
++	embedded_host = NULL;
++	sys_error_handler = NULL;
++	return embedded_exit_code;
++}
+diff --git a/src/ffi.c b/src/ffi.c
+index 1789223..7194898 100644
+--- a/src/ffi.c
++++ b/src/ffi.c
+@@ -46,6 +46,15 @@ struct hll_function {
+ 
+ static struct hll_function **libraries = NULL;
+ 
++#ifdef XSYSTEM4_EMBEDDED
++struct replaced_function {
++	void **slot;
++	void *fun;
++};
++static struct replaced_function *replaced_functions = NULL;
++static size_t nr_replaced_functions = 0;
++#endif
++
+ // Object slot for AIN_HLL_FUNC callbacks (closure env / method receiver).
+ // Set by FFI when processing AIN_HLL_FUNC arguments; read by vm_call_nopop
+ // to set struct_page on the new call frame for lambda/method callbacks.
+@@ -1370,10 +1379,41 @@ void exit_libraries(void)
+ 		library_run_all("_ModuleFini");
+ }
+ 
++void xsystem4_libraries_destroy(void)
++{
++	if (libraries && ain) {
++		for (int i = 0; i < ain->nr_libraries; i++) {
++			if (!libraries[i])
++				continue;
++			for (int j = 0; j < ain->libraries[i].nr_functions; j++)
++				free(libraries[i][j].args);
++			free(libraries[i]);
++		}
++		free(libraries);
++		libraries = NULL;
++	}
++	libraries_initialized = false;
++#ifdef XSYSTEM4_EMBEDDED
++	for (size_t i = nr_replaced_functions; i > 0; i--)
++		*replaced_functions[i - 1].slot = replaced_functions[i - 1].fun;
++	free(replaced_functions);
++	replaced_functions = NULL;
++	nr_replaced_functions = 0;
++#endif
++}
++
+ void static_library_replace(struct static_library *lib, const char *name, void *fun)
+ {
+ 	for (int i = 0; lib->functions[i].name; i++) {
+ 		if (!strcmp(lib->functions[i].name, name)) {
++#ifdef XSYSTEM4_EMBEDDED
++			replaced_functions = xrealloc_array(replaced_functions, nr_replaced_functions,
++					nr_replaced_functions + 1, sizeof(struct replaced_function));
++			replaced_functions[nr_replaced_functions++] = (struct replaced_function){
++				.slot = &lib->functions[i].fun,
++				.fun = lib->functions[i].fun,
++			};
++#endif
+ 			lib->functions[i].fun = fun;
+ 			return;
+ 		}
+diff --git a/src/font_fnl.c b/src/font_fnl.c
+index f80c6e9..f7759e7 100644
+--- a/src/font_fnl.c
++++ b/src/font_fnl.c
+@@ -197,6 +197,26 @@ static float fnl_font_size_char_kerning(struct font_size *size, uint32_t code,
+ 	return fnl_font_size_char(size, code);
+ }
+ 
++static void fnl_font_destroy(struct font *value)
++{
++	struct font_fnl *font = (struct font_fnl *)value;
++	for (unsigned i = 0; i < font->nr_sizes; i++)
++		gfx_font_size_fini(&font->sizes[i].super);
++	free(font->sizes);
++	for (unsigned i = 0; i < font->nr_bitmap_sizes; i++) {
++		struct fnl_bitmap_size *bs = &font->bitmap_sizes[i];
++		for (unsigned j = 0; j < bs->nr_glyphs; j++) {
++			if (bs->glyphs[j]) {
++				free(bs->glyphs[j]->pixels);
++				free(bs->glyphs[j]);
++			}
++		}
++		free(bs->glyphs);
++	}
++	free(font->bitmap_sizes);
++	free(font);
++}
++
+ struct font *fnl_font_load(struct fnl *lib, unsigned index)
+ {
+ 	if (index >= lib->nr_fonts)
+@@ -236,6 +256,8 @@ struct font *fnl_font_load(struct fnl *lib, unsigned index)
+ 	font->super.get_glyph = fnl_font_get_glyph;
+ 	font->super.size_char = fnl_font_size_char;
+ 	font->super.size_char_kerning = fnl_font_size_char_kerning;
++	font->super.destroy = fnl_font_destroy;
++	font->font = lib;
+ 
+ 	if (!game_rance7_mg)
+ 		gfx_text_advance_edges = true;
+diff --git a/src/font_freetype.c b/src/font_freetype.c
+index 593db57..bb7784e 100644
+--- a/src/font_freetype.c
++++ b/src/font_freetype.c
+@@ -58,11 +58,31 @@ static bool is_half_width(uint32_t code)
+ 
+ void ft_font_init(void)
+ {
++	if (ft_lib)
++		return;
+ 	if (FT_Init_FreeType(&ft_lib)) {
+ 		ERROR("Failed to initialize FreeType");
+ 	}
+ }
+ 
++void ft_font_fini(void)
++{
++	if (ft_lib) {
++		FT_Done_FreeType(ft_lib);
++		ft_lib = NULL;
++	}
++}
++
++static void ft_font_destroy(struct font *value)
++{
++	struct font_ft *font = (struct font_ft *)value;
++	for (unsigned i = 0; i < font->nr_sizes; i++)
++		gfx_font_size_fini(&font->sizes[i]);
++	if (font->font)
++		FT_Done_Face(font->font);
++	free(font);
++}
++
+ static struct font_size *ft_font_get_size(struct font *_font, float size)
+ {
+ 	struct font_ft *font = (struct font_ft*)_font;
+@@ -278,5 +298,6 @@ struct font *ft_font_load(const char *path)
+ 	font->super.get_glyph = ft_font_get_glyph;
+ 	font->super.size_char = ft_font_size_char;
+ 	font->super.size_char_kerning = ft_font_size_char_kerning;
++	font->super.destroy = ft_font_destroy;
+ 	return &font->super;
+ }
+diff --git a/src/hacks.c b/src/hacks.c
+index 64fd335..f5670c5 100644
+--- a/src/hacks.c
++++ b/src/hacks.c
+@@ -321,6 +321,14 @@ static void apply_daibanchou_hacks(struct ain *ain)
+ 
+ void apply_game_specific_hacks(struct ain *ain)
+ {
++	game_daibanchou_en = false;
++	game_rance02_mg = false;
++	game_rance6_mg = false;
++	game_rance7_mg = false;
++	game_rance8 = false;
++	game_rance8_mg = false;
++	game_dungeons_and_dolls = false;
++
+ 	char *game_name = game_to_utf8(config.game_name, 0);
+ 	if (!strcmp(game_name, "大番長")) {
+ 		apply_daibanchou_hacks(ain);
+diff --git a/src/hll/AnteaterADVEngine.c b/src/hll/AnteaterADVEngine.c
+index 841233c..a2fe3ac 100644
+--- a/src/hll/AnteaterADVEngine.c
++++ b/src/hll/AnteaterADVEngine.c
+@@ -345,7 +345,11 @@ static unsigned scene_last = 0;
+ 
+ static int scene_struct_no(void)
+ {
++#ifdef XSYSTEM4_EMBEDDED
++	int no = -1;
++#else
+ 	static int no = -1;
++#endif
+ 	if (no < 0) {
+ 		char *s = utf8_to_game("画面保管_t", 0);
+ 		no = ain_get_struct(ain, s);
+diff --git a/src/hll/DrawMovie.c b/src/hll/DrawMovie.c
+index 21c9f7b..b56d334 100644
+--- a/src/hll/DrawMovie.c
++++ b/src/hll/DrawMovie.c
+@@ -90,6 +90,7 @@ static void DrawMovie2_UpdateVolume(void)
+ HLL_QUIET_UNIMPLEMENTED(, void, DrawMovie3, UpdateVolume, bool IsMuteByInactiveWindow);
+ 
+ HLL_LIBRARY(DrawMovie,
++	    HLL_EXPORT(_ModuleFini, DrawMovie_Release),
+ 	    HLL_EXPORT(Release, DrawMovie_Release),
+ 	    HLL_EXPORT(Load, DrawMovie_Load),
+ 	    HLL_EXPORT(Run, DrawMovie_Run),
+@@ -100,6 +101,7 @@ HLL_LIBRARY(DrawMovie,
+ 	);
+ 
+ HLL_LIBRARY(DrawMovie2,
++	    HLL_EXPORT(_ModuleFini, DrawMovie_Release),
+ 	    HLL_EXPORT(Release, DrawMovie_Release),
+ 	    HLL_EXPORT(Load, DrawMovie_Load),
+ 	    HLL_EXPORT(Run, DrawMovie_Run),
+@@ -112,6 +114,7 @@ HLL_LIBRARY(DrawMovie2,
+ 	);
+ 
+ HLL_LIBRARY(DrawMovie3,
++	    HLL_EXPORT(_ModuleFini, DrawMovie_Release),
+ 	    HLL_EXPORT(Release, DrawMovie_Release),
+ 	    HLL_EXPORT(Load, DrawMovie_Load),
+ 	    HLL_EXPORT(Run, DrawMovie_Run),
+diff --git a/src/hll/FillAngle.c b/src/hll/FillAngle.c
+index 0268bfb..416c609 100644
+--- a/src/hll/FillAngle.c
++++ b/src/hll/FillAngle.c
+@@ -80,6 +80,14 @@ static bool FillAngle_FillAngleAMAP(int sprite, int center_x, int center_y, int
+ 	return true;
+ }
+ 
++static void FillAngle_ModuleFini(void)
++{
++	if (shader.s.program)
++		glDeleteProgram(shader.s.program);
++	memset(&shader, 0, sizeof(shader));
++}
++
+ HLL_LIBRARY(FillAngle,
++	    HLL_EXPORT(_ModuleFini, FillAngle_ModuleFini),
+ 	    HLL_EXPORT(FillAngleAMAP, FillAngle_FillAngleAMAP)
+ 	    );
+diff --git a/src/hll/InputString.c b/src/hll/InputString.c
+index 268a14c..043b95a 100644
+--- a/src/hll/InputString.c
++++ b/src/hll/InputString.c
+@@ -27,6 +27,9 @@
+ #include "hll.h"
+ #include "input.h"
+ #include "xsystem4.h"
++#ifdef XSYSTEM4_EMBEDDED
++#include "embedded.h"
++#endif
+ 
+ static int font_size;
+ static int font_weight;
+@@ -109,12 +112,20 @@ static void InputString_OpenIME(void)
+ 	register_editing_handler(handle_editing);
+ 	register_key_handler(handle_key);
+ 	has_editing_text = false;
++#ifdef XSYSTEM4_EMBEDDED
++	xsystem4_host_text_input(1);
++#else
+ 	SDL_StartTextInput();
++#endif
+ }
+ 
+ static void InputString_CloseIME(void)
+ {
++#ifdef XSYSTEM4_EMBEDDED
++	xsystem4_host_text_input(0);
++#else
+ 	SDL_StopTextInput();
++#endif
+ 	has_editing_text = false;
+ 	clear_input_handler();
+ 	clear_editing_handler();
+@@ -143,8 +154,22 @@ static void InputString_PreLink(void)
+ 	}
+ }
+ 
++static void InputString_ModuleFini(void)
++{
++	InputString_CloseIME();
++	if (result) {
++		free_string(result);
++		result = NULL;
++	}
++	font_size = 0;
++	font_weight = 0;
++	pos = (Point){0};
++	get_result_string_clears = false;
++}
++
+ HLL_LIBRARY(InputString,
+ 	    HLL_EXPORT(_PreLink, InputString_PreLink),
++	    HLL_EXPORT(_ModuleFini, InputString_ModuleFini),
+ 	    HLL_EXPORT(SetFont, InputString_SetFont),
+ 	    HLL_EXPORT(SetPos, InputString_SetPos),
+ 	    HLL_EXPORT(Begin, InputString_Begin),
+diff --git a/src/hll/MsgSkip.c b/src/hll/MsgSkip.c
+index f1113c4..cc4ea1f 100644
+--- a/src/hll/MsgSkip.c
++++ b/src/hll/MsgSkip.c
+@@ -424,10 +424,12 @@ static int MsgSkip_Init(struct string *name)
+ 		}
+ 		free(data);
+ 	}
+-#ifdef __ANDROID__
++#if defined(__ANDROID__) && !defined(XSYSTEM4_EMBEDDED)
+ 	SDL_AddEventWatch(msgskip_event_handler, NULL);
+ #endif
++#ifndef XSYSTEM4_EMBEDDED
+ 	atexit(msgskip_save);
++#endif
+ 	return 1;
+ }
+ 
+@@ -585,6 +587,15 @@ static void MsgSkip_ModuleFini(void)
+ 		// in memory there, as before.
+ 		if (!msgskip_write())
+ 			WARNING("Failed to save MsgSkip file '%s': %s", display_utf0(save_path), strerror(errno));
++#ifdef XSYSTEM4_EMBEDDED
++		free(flags);
++		flags = NULL;
++		free(save_path);
++		save_path = NULL;
++		nr_flags = 0;
++		state = 0;
++		enabled = false;
++#endif
+ 	}
+ }
+ 
+diff --git a/src/hll/PlayMovie.c b/src/hll/PlayMovie.c
+index 9237659..4b0735f 100644
+--- a/src/hll/PlayMovie.c
++++ b/src/hll/PlayMovie.c
+@@ -71,6 +71,7 @@ static void PlayMovie_Release(void)
+ }
+ 
+ HLL_LIBRARY(PlayMovie,
++	    HLL_EXPORT(_ModuleFini, PlayMovie_Release),
+ 	    HLL_EXPORT(Init, PlayMovie_Init),
+ 	    HLL_EXPORT(Load, PlayMovie_Load),
+ 	    HLL_EXPORT(Play, PlayMovie_Play),
+diff --git a/src/hll/SACT2.c b/src/hll/SACT2.c
+index 28a9c5a..79dd10c 100644
+--- a/src/hll/SACT2.c
++++ b/src/hll/SACT2.c
+@@ -146,6 +146,23 @@ void sact_ModuleFini(void)
+ {
+ 	sact_SP_DeleteAll();
+ 	audio_reset();
++#ifdef XSYSTEM4_EMBEDDED
++	if (sprites) {
++		if (sprites[-1]) {
++			// The texture belongs to gfx_main_surface, including across vm_reset.
++			sprites[-1]->texture = (Texture){0};
++			sprite_free(sprites[-1]);
++			free(sprites[-1]);
++		}
++		free(sprites - 1);
++	}
++	sprites = NULL;
++	nr_sprites = 0;
++	next_z2 = 0;
++	view_mode = 0;
++	use_power2_texture = false;
++	engine_type = UNINITIALIZED_SPRITE_ENGINE;
++#endif
+ }
+ 
+ //int SACT2_Error(struct string *err);
+diff --git a/src/hll/SealEngine.c b/src/hll/SealEngine.c
+index fed18d5..4bf3a68 100644
+--- a/src/hll/SealEngine.c
++++ b/src/hll/SealEngine.c
+@@ -1840,10 +1840,27 @@ static struct string *SealEngine_Tool_CreateFBXAscii(int p, int i)
+ 	return make_string("", 0);
+ }
+ 
++static void SealEngine_ModuleFini(void)
++{
++	for (int i = 0; i < SE_MAX_PLUGINS; i++) {
++		if (se_plugins[i]) {
++			RE_plugin_free(se_plugins[i]);
++			se_plugins[i] = NULL;
++		}
++	}
++	se_initialized = false;
++	se_mag_speed = 1;
++	memset(se_plugin_ext, 0, sizeof(se_plugin_ext));
++	memset(se_instance_ext, 0, sizeof(se_instance_ext));
++	memset(se_parts3d_plugin_map, 0, sizeof(se_parts3d_plugin_map));
++	memset(se_parts3d_valid, 0, sizeof(se_parts3d_valid));
++}
++
+ /* ============================================================
+  * HLL_LIBRARY declaration - all 248 functions in AIN order
+  * ============================================================ */
+ HLL_LIBRARY(SealEngine,
++	HLL_EXPORT(_ModuleFini, SealEngine_ModuleFini),
+ 	HLL_EXPORT(GetNumofPlugin, SealEngine_GetNumofPlugin),
+ 	HLL_EXPORT(IsExistPlugin, SealEngine_IsExistPlugin),
+ 	HLL_EXPORT(IsExist3DFile, SealEngine_IsExist3DFile),
+diff --git a/src/hll/system.c b/src/hll/system.c
+index 5e673c4..6fc7c40 100644
+--- a/src/hll/system.c
++++ b/src/hll/system.c
+@@ -9,6 +9,9 @@
+ #include <errno.h>
+ #include <zlib.h>
+ #include <SDL.h>
++#ifdef __APPLE__
++#include <TargetConditionals.h>
++#endif
+ 
+ #include "system4/ain.h"
+ #include "system4/file.h"
+@@ -710,7 +713,9 @@ static struct string *system_Error(struct string *text)
+ // [27] OpenWeb(url) -> void
+ static void system_OpenWeb(struct string *url)
+ {
+-#ifdef __APPLE__
++#if defined(XSYSTEM4_EMBEDDED) || (defined(__APPLE__) && TARGET_OS_IPHONE)
++	(void)url;
++#elif defined(__APPLE__)
+ 	char cmd[2048];
+ 	snprintf(cmd, sizeof(cmd), "open '%s'", url->text);
+ 	system(cmd);
+diff --git a/src/hll/vmDialog.c b/src/hll/vmDialog.c
+index 6df2fc0..619f653 100644
+--- a/src/hll/vmDialog.c
++++ b/src/hll/vmDialog.c
+@@ -29,7 +29,12 @@ static int vmDialog_MsgBox(struct string *t_string, struct string *string, int t
+ 	uint32_t flags = (type == 4) ? SDL_MESSAGEBOX_ERROR : 0;
+ 	char *title = game_to_utf8(t_string->text, 0);
+ 	char *message = game_to_utf8(string->text, 0);
++#ifdef XSYSTEM4_EMBEDDED
++	WARNING("%s: %s", title, message);
++	(void)flags;
++#else
+ 	SDL_ShowSimpleMessageBox(flags, title, message, NULL);
++#endif
+ 	free(message);
+ 	free(title);
+ 	return 1;
+diff --git a/src/input.c b/src/input.c
+index c731558..0db7731 100644
+--- a/src/input.c
++++ b/src/input.c
+@@ -36,6 +36,10 @@
+ #include "vm.h"
+ #include "xsystem4.h"
+ #include "debugger.h"
++#ifdef XSYSTEM4_EMBEDDED
++#include "embedded.h"
++#define SDL_PollEvent xsystem4_host_poll_event
++#endif
+ 
+ #ifndef M_PI
+ #define M_PI (3.14159265358979323846)
+@@ -895,8 +899,12 @@ void mouse_get_pos(int *x, int *y)
+ 		*y = pointer.y;
+ 		return;
+ 	}
++#ifdef XSYSTEM4_EMBEDDED
++	xsystem4_host_mouse_position(x, y, 0);
++#else
+ 	SDL_PumpEvents();
+ 	sdl_mouse_pos(x, y);
++#endif
+ }
+ 
+ void mouse_set_pos(int x, int y)
+@@ -906,9 +914,13 @@ void mouse_set_pos(int x, int y)
+ 		pointer_set(MOUSE_POS_AUTO, x, y);
+ 		return;
+ 	}
++#ifdef XSYSTEM4_EMBEDDED
++	xsystem4_host_mouse_position(&x, &y, 1);
++#else
+ 	int wx = x * sdl.viewport.w / sdl.w + sdl.viewport.x;
+ 	int wy = y * sdl.viewport.h / sdl.h + sdl.viewport.y;
+ 	SDL_WarpMouseInWindow(sdl.window, wx, wy);
++#endif
+ 	// After the warp, so that the motion SDL sends for it is not later.
+ 	pointer_set(MOUSE_POS_WARP, x, y);
+ }
+@@ -1697,12 +1709,9 @@ static bool close_confirm;
+ 
+ void input_set_close_confirm(bool on)
+ {
+-#ifdef __ANDROID__
+-	// Never on Android, where SDL_QUIT ends the program as before: SDL
+-	// sends it when the activity is destroyed and then waits on the UI
+-	// thread for this thread to end, while a message box is shown by the
+-	// UI thread and waited for here. (SDLActivity.java of SDL 2.32,
+-	// onDestroy and messageboxShowMessageBox; not tried.)
++#if defined(__ANDROID__) || defined(XSYSTEM4_EMBEDDED)
++	// Never on Android/embedded hosts, where SDL_QUIT/shutdown comes from the
++	// host lifecycle and must not block the worker thread with a native modal box.
+ 	(void)on;
+ #else
+ 	close_confirm = on;
+@@ -2012,3 +2021,36 @@ void handle_events(void)
+ 	if (mouse_cursor_v14())
+ 		mouse_cursor_update();
+ }
++
++void input_reset(void)
++{
++	memset(key_state, 0, sizeof(key_state));
++	memset(v14_source_down, 0, sizeof(v14_source_down));
++	memset(joybutton_state, 0, sizeof(joybutton_state));
++	memset(joyaxis_state, 0, sizeof(joyaxis_state));
++	memset(mouse_hold_until, 0, sizeof(mouse_hold_until));
++	memset(mouse_release_pending, 0, sizeof(mouse_release_pending));
++	wheel_dir = 0;
++	memset(&v14_wheel, 0, sizeof(v14_wheel));
++	memset(&mouse_cursor, 0, sizeof(mouse_cursor));
++	memset(&pointer, 0, sizeof(pointer));
++	input_handler = NULL;
++	editing_handler = NULL;
++	key_handler = NULL;
++	memset(&deferred_synthetic_mouse_event, 0, sizeof(deferred_synthetic_mouse_event));
++	long_touch_start_timestamp = 0;
++	scroll_gesture_y = 0;
++	mouse_focus = true;
++	keyboard_focus = true;
++	window_minimized = false;
++	close_confirm = false;
++	quit_signal = 0;
++#ifdef __ANDROID__
++	while (!STAILQ_EMPTY(&deferred_keyevent_queue)) {
++		struct deferred_keyevent *event = STAILQ_FIRST(&deferred_keyevent_queue);
++		STAILQ_REMOVE_HEAD(&deferred_keyevent_queue, entry);
++		free(event);
++	}
++	last_keyevent_timestamp = 0;
++#endif
++}
+diff --git a/src/movie_ffmpeg.c b/src/movie_ffmpeg.c
+index 3eeeb96..13fc21e 100644
+--- a/src/movie_ffmpeg.c
++++ b/src/movie_ffmpeg.c
+@@ -284,8 +284,14 @@ static char *apeg_extract_ogg(const char *apeg_path, int *out_w, int *out_h)
+ 		uint32_t body_size = chunk_hdr[4] | (chunk_hdr[5]<<8) | (chunk_hdr[6]<<16) | (chunk_hdr[7]<<24);
+ 		if (memcmp(chunk_hdr, "SOND", 4) == 0 && body_size > 0) {
+ 			// Body is raw Ogg Vorbis data.
+-			tmp_path = xmalloc(64);
+-			snprintf(tmp_path, 64, "/tmp/xsys4_apeg_audio_%d.ogg", (int)getpid());
++			const char *tmp_dir = getenv("TMPDIR");
++			if (!tmp_dir || !*tmp_dir)
++				tmp_dir = (config.save_dir && *config.save_dir) ? config.save_dir : "/tmp";
++			size_t dir_len = strlen(tmp_dir);
++			const char *sep = (dir_len > 0 && tmp_dir[dir_len - 1] == '/') ? "" : "/";
++			size_t path_cap = dir_len + 64;
++			tmp_path = xmalloc(path_cap);
++			snprintf(tmp_path, path_cap, "%s%sxsys4_apeg_audio_%d.ogg", tmp_dir, sep, (int)getpid());
+ 			FILE *out = fopen(tmp_path, "wb");
+ 			if (!out) {
+ 				free(tmp_path);
+diff --git a/src/parts/parts.c b/src/parts/parts.c
+index 1b1463b..5ff7656 100644
+--- a/src/parts/parts.c
++++ b/src/parts/parts.c
+@@ -1968,6 +1968,19 @@ void PE_Reset(void)
+ 	PE_ReleaseMessage();
+ 	ctrl_stack_init();
+ 	sact_ModuleFini();
++#ifdef XSYSTEM4_EMBEDDED
++	parts_render_fini();
++	if (ain && ain->version >= 14)
++		pe_v14_activity_reset();
++	if (parts_table) {
++		ht_free_int(parts_table);
++		parts_table = NULL;
++	}
++	free(ctrl_stack.ids);
++	memset(&ctrl_stack, 0, sizeof(ctrl_stack));
++	parts_multi_controller = false;
++	parts_engine_initialized = false;
++#endif
+ }
+ 
+ static bool parts_has_dirty_parent(struct parts *parts)
+diff --git a/src/parts/parts_internal.h b/src/parts/parts_internal.h
+index ab8d7ea..bc9ffee 100644
+--- a/src/parts/parts_internal.h
++++ b/src/parts/parts_internal.h
+@@ -1090,6 +1090,7 @@ struct string *parts_text_get(struct parts_text *t);
+ int parts_clip_area_transform(struct parts *parts, mat4 out);
+ int parts_effective_alpha_clipper(struct parts *parts);
+ void parts_render_init(void);
++void parts_render_fini(void);
+ void parts_render_update(void);
+ void parts_engine_dirty(void);
+ void parts_engine_clean(void);
+diff --git a/src/parts/render.c b/src/parts/render.c
+index 237c891..d6ad898 100644
+--- a/src/parts/render.c
++++ b/src/parts/render.c
+@@ -1065,3 +1065,10 @@ void parts_render_init(void)
+ 	parts_shader.persp_transform = glGetUniformLocation(parts_shader.shader.program, "persp_transform");
+ 	parts_shader.use_persp = glGetUniformLocation(parts_shader.shader.program, "use_persp");
+ }
++
++void parts_render_fini(void)
++{
++	if (parts_shader.shader.program)
++		glDeleteProgram(parts_shader.shader.program);
++	memset(&parts_shader, 0, sizeof(parts_shader));
++}
+diff --git a/src/scene.c b/src/scene.c
+index fd8f89c..bcaaf52 100644
+--- a/src/scene.c
++++ b/src/scene.c
+@@ -176,3 +176,15 @@ struct sprite *scene_get(int id)
+ 	}
+ 	return NULL;
+ }
++
++void scene_reset(void)
++{
++	while (!TAILQ_EMPTY(&sprite_list)) {
++		struct sprite *p = TAILQ_FIRST(&sprite_list);
++		TAILQ_REMOVE(&sprite_list, p, entry);
++		p->in_scene = false;
++	}
++	gfx_delete_texture(&wp);
++	id_counter = 0;
++	scene_is_dirty = true;
++}
+diff --git a/src/screenshot.c b/src/screenshot.c
+index b10ba24..999b471 100644
+--- a/src/screenshot.c
++++ b/src/screenshot.c
+@@ -21,6 +21,9 @@
+ #include <limits.h>
+ #include <time.h>
+ #include <SDL.h>
++#ifdef __APPLE__
++#include <TargetConditionals.h>
++#endif
+ 
+ #include "system4.h"
+ #include "system4/cg.h"
+@@ -98,7 +101,7 @@ void screenshot_save(void)
+ }
+ 
+ #else
+-#ifdef __ANDROID__
++#if defined(__ANDROID__) || defined(XSYSTEM4_EMBEDDED) || (defined(__APPLE__) && TARGET_OS_IPHONE)
+ 
+ void screenshot_save(void)
+ {
+diff --git a/src/sprite.c b/src/sprite.c
+index e845f88..098fb24 100644
+--- a/src/sprite.c
++++ b/src/sprite.c
+@@ -499,3 +499,12 @@ void sprite_call_plugins(void)
+ 			sp->plugin->update(sp);
+ 	}
+ }
++
++void sprite_renderer_fini(void)
++{
++	if (sprite_shader.s.program)
++		glDeleteProgram(sprite_shader.s.program);
++	memset(&sprite_shader, 0, sizeof(sprite_shader));
++	LIST_INIT(&sprites_with_plugins);
++	sact_dirty = true;
++}
+diff --git a/src/text.c b/src/text.c
+index 96f7e21..11c1ce4 100644
+--- a/src/text.c
++++ b/src/text.c
+@@ -131,6 +131,24 @@ static struct font *load_font(enum font_face type)
+ }
+ 
+ static bool font_initialized = false;
++static struct fnl *font_fnl_lib = NULL;
++
++static void free_glyph_value(void *value)
++{
++	struct glyph *g = value;
++	for (int i = 0; i < NR_FONT_WEIGHTS; i++)
++		gfx_delete_texture(&g->t[i]);
++	free(g);
++}
++
++void gfx_font_size_fini(struct font_size *size)
++{
++	if (size->glyph_table) {
++		ht_foreach_value(size->glyph_table, free_glyph_value);
++		ht_free_int(size->glyph_table);
++		size->glyph_table = NULL;
++	}
++}
+ 
+ void gfx_font_init(void)
+ {
+@@ -146,6 +164,7 @@ void gfx_font_init(void)
+ 			ERROR("Failed to load .fnl font library '%s'", config.fnl_path);
+ 		if (!fnl->nr_fonts)
+ 			ERROR("No fonts in .fnl font library '%s'", config.fnl_path);
++		font_fnl_lib = fnl;
+ 		for (unsigned i = 0; i < fnl->nr_fonts && i < MAX_FNL_FONTS; i++) {
+ 			font_fnl[i] = fnl_font_load(fnl, i);
+ 		}
+@@ -153,6 +172,33 @@ void gfx_font_init(void)
+ 	font_initialized = true;
+ }
+ 
++void gfx_font_fini(void)
++{
++	if (!font_initialized)
++		return;
++	for (int i = 0; i < 2; i++) {
++		if (font_ttf[i]) {
++			if (font_ttf[i]->destroy)
++				font_ttf[i]->destroy(font_ttf[i]);
++			font_ttf[i] = NULL;
++		}
++	}
++	for (int i = 0; i < MAX_FNL_FONTS; i++) {
++		if (font_fnl[i]) {
++			if (font_fnl[i]->destroy)
++				font_fnl[i]->destroy(font_fnl[i]);
++			font_fnl[i] = NULL;
++		}
++	}
++	if (font_fnl_lib) {
++		fnl_free(font_fnl_lib);
++		font_fnl_lib = NULL;
++	}
++	ft_font_fini();
++	gfx_text_advance_edges = false;
++	font_initialized = false;
++}
++
+ static struct font *get_font(unsigned face)
+ {
+ 	if (face > 255) {
+diff --git a/src/video.c b/src/video.c
+index b9e7765..7bcffba 100644
+--- a/src/video.c
++++ b/src/video.c
+@@ -33,6 +33,9 @@
+ #include "icon.h"
+ #include "input.h"
+ #include "xsystem4.h"
++#ifdef XSYSTEM4_EMBEDDED
++#include "embedded.h"
++#endif
+ 
+ struct sdl_private sdl;
+ 
+@@ -77,6 +80,12 @@ static bool vsync_active = false;
+ 
+ static GLchar *read_shader_file(const char *path)
+ {
++#ifdef XSYSTEM4_EMBEDDED
++	const char *source = xsystem4_host_shader(path);
++	if (!source)
++		ERROR("Missing embedded shader %s", path);
++	return SDL_strdup(source);
++#else
+ 	GLchar *source = SDL_LoadFile(path, NULL);
+ 	if (!source) {
+ 		char full_path[PATH_MAX];
+@@ -86,6 +95,7 @@ static GLchar *read_shader_file(const char *path)
+ 			ERROR("Failed to load shader file %s", full_path, strerror(errno));
+ 	}
+ 	return source;
++#endif
+ }
+ 
+ GLuint gfx_load_shader_file(const char *path, GLenum type, const char *defines)
+@@ -229,6 +239,17 @@ int gfx_init(void)
+ 	if (gfx_initialized)
+ 		return true;
+ 
++#ifdef XSYSTEM4_EMBEDDED
++	if (!xsystem4_host_init_graphics(config.view_width, config.view_height))
++		ERROR("xsystem4_host_init_graphics failed");
++	sdl.format = SDL_AllocFormat(SDL_PIXELFORMAT_RGBA32);
++	gl_initialize();
++	gfx_draw_init();
++	gfx_set_window_logical_size(config.view_width, config.view_height);
++	gfx_clear();
++	gfx_initialized = true;
++	return 0;
++#else
+ 	uint32_t flags = SDL_INIT_VIDEO | SDL_INIT_AUDIO;
+ 	if (config.joypad)
+ 		flags |= SDL_INIT_GAMECONTROLLER;
+@@ -279,14 +300,41 @@ int gfx_init(void)
+ 	icon_init();
+ 	gfx_initialized = true;
+ 	return 0;
++#endif
+ }
+ 
+ void gfx_fini(void)
+ {
+-	glDeleteProgram(default_shader.program);
++	if (!gfx_initialized)
++		return;
++	gfx_wait_pixels_writes();
++	void effect_renderer_fini(void);
++	void sprite_renderer_fini(void);
++	void scene_reset(void);
++	effect_renderer_fini();
++	sprite_renderer_fini();
++	scene_reset();
++	gfx_delete_texture(&main_surface);
++	if (main_surface_fb) {
++		glDeleteFramebuffers(1, &main_surface_fb);
++		main_surface_fb = 0;
++	}
++	if (default_shader.program) {
++		glDeleteProgram(default_shader.program);
++		memset(&default_shader, 0, sizeof(default_shader));
++	}
++	view = &main_surface;
++#ifndef XSYSTEM4_EMBEDDED
+ 	SDL_DestroyWindow(sdl.window);
+-	SDL_FreeFormat(sdl.format);
++#endif
++	if (sdl.format) {
++		SDL_FreeFormat(sdl.format);
++		sdl.format = NULL;
++	}
++	gfx_initialized = false;
++#ifndef XSYSTEM4_EMBEDDED
+ 	SDL_Quit();
++#endif
+ }
+ 
+ Texture *gfx_main_surface(void)
+@@ -315,6 +363,10 @@ static void main_surface_init(int w, int h)
+ 
+ void gfx_set_window_logical_size(int w, int h)
+ {
++#ifdef XSYSTEM4_EMBEDDED
++	if (!xsystem4_host_init_graphics(w, h))
++		ERROR("xsystem4_host_init_graphics failed");
++#endif
+ 	sdl.w = w;
+ 	sdl.h = h;
+ 	world_view_transform[0][0] = 2.0 / w;
+@@ -325,17 +377,26 @@ void gfx_set_window_logical_size(int w, int h)
+ 
+ bool gfx_set_fullscreen(bool enable)
+ {
++#ifdef XSYSTEM4_EMBEDDED
++	(void)enable;
++	return false;
++#else
+ 	uint32_t flags = enable ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0;
+ 	if (SDL_SetWindowFullscreen(sdl.window, flags) < 0) {
+ 		WARNING("Failed to set fullscreen mode: %s", SDL_GetError());
+ 		return false;
+ 	}
+ 	return true;
++#endif
+ }
+ 
+ bool gfx_is_fullscreen(void)
+ {
++#ifdef XSYSTEM4_EMBEDDED
++	return false;
++#else
+ 	return SDL_GetWindowFlags(sdl.window) & SDL_WINDOW_FULLSCREEN_DESKTOP;
++#endif
+ }
+ 
+ void gfx_toggle_fullscreen(void)
+@@ -345,6 +406,13 @@ void gfx_toggle_fullscreen(void)
+ 
+ void gfx_update_screen_scale(void)
+ {
++#ifdef XSYSTEM4_EMBEDDED
++	sdl.viewport.x = 0;
++	sdl.viewport.y = 0;
++	sdl.viewport.w = sdl.w;
++	sdl.viewport.h = sdl.h;
++	return;
++#else
+ 	int display_w, display_h;
+ 	SDL_GL_GetDrawableSize(sdl.window, &display_w, &display_h);
+ 
+@@ -372,15 +440,18 @@ void gfx_update_screen_scale(void)
+ 		sdl.viewport.x = (display_w - sdl.viewport.w) / 2;
+ 		sdl.viewport.y = 0;
+ 	}
++#endif
+ }
+ 
+ void gfx_set_wait_vsync(bool wait)
+ {
+ 	wait_vsync = wait;
++#ifndef XSYSTEM4_EMBEDDED
+ 	if (gfx_initialized) {
+ 		SDL_GL_SetSwapInterval(wait ? 1 : 0);
+ 		vsync_active = SDL_GL_GetSwapInterval() != 0;
+ 	}
++#endif
+ }
+ 
+ void gfx_flush(void)
+@@ -395,15 +466,23 @@ bool gfx_vsync_active(void)
+ 
+ bool gfx_window_active(void)
+ {
++#ifdef XSYSTEM4_EMBEDDED
++	return gfx_initialized;
++#else
+ 	return gfx_initialized && (SDL_GetWindowFlags(sdl.window) & SDL_WINDOW_INPUT_FOCUS);
++#endif
+ }
+ 
+ // The window a modal box belongs to; NULL while there is none on the screen.
+ SDL_Window *gfx_dialog_window(void)
+ {
++#ifdef XSYSTEM4_EMBEDDED
++	return NULL;
++#else
+ 	if (!gfx_initialized || !sdl.window || (SDL_GetWindowFlags(sdl.window) & SDL_WINDOW_HIDDEN))
+ 		return NULL;
+ 	return sdl.window;
++#endif
+ }
+ 
+ void gfx_set_clear_color(int r, int g, int b, int a)
+@@ -574,7 +653,11 @@ void gfx_swap(void)
+ 		}
+ 	}
+ 
++#ifdef XSYSTEM4_EMBEDDED
++	glBindFramebuffer(GL_FRAMEBUFFER, xsystem4_host_framebuffer());
++#else
+ 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
++#endif
+ 	glViewport(sdl.viewport.x, sdl.viewport.y, sdl.viewport.w, sdl.viewport.h);
+ 	gfx_clear();
+ 
+@@ -593,10 +676,14 @@ void gfx_swap(void)
+ 	};
+ 	gfx_render(&job);
+ 
++#ifdef XSYSTEM4_EMBEDDED
++	xsystem4_host_present(sdl.w, sdl.h);
++#else
+ 	uint64_t perf_swap_start = gfx_stage2_perf_begin_swap();
+ 	SDL_GL_SwapWindow(sdl.window);
+ 	if (stage2_perf.enabled)
+ 		gfx_stage2_perf_presented(perf_swap_start, SDL_GetPerformanceCounter());
++#endif
+ 	glBindFramebuffer(GL_FRAMEBUFFER, main_surface_fb);
+ 	glViewport(0, 0, sdl.w, sdl.h);
+ 
+@@ -637,12 +724,15 @@ void gfx_prepare_job(struct gfx_render_job *job)
+ void gfx_run_job(struct gfx_render_job *job)
+ {
+ 	glBindVertexArray(sdl.gl.vao);
+-	glEnableVertexAttribArray(job->shader->vertex_pos);
+-	glEnableVertexAttribArray(job->shader->vertex_uv);
+-
+ 	glBindBuffer(GL_ARRAY_BUFFER, job->shape == GFX_QUADRILATERAL ? sdl.gl.quad_vbo : sdl.gl.vbo);
+-	glVertexAttribPointer(job->shader->vertex_pos, 4, GL_FLOAT, GL_FALSE, sizeof(struct gfx_vertex), NULL);
+-	glVertexAttribPointer(job->shader->vertex_uv, 2, GL_FLOAT, GL_FALSE, sizeof(struct gfx_vertex), (void*)offsetof(struct gfx_vertex, u));
++	if (job->shader->vertex_pos >= 0) {
++		glEnableVertexAttribArray(job->shader->vertex_pos);
++		glVertexAttribPointer(job->shader->vertex_pos, 4, GL_FLOAT, GL_FALSE, sizeof(struct gfx_vertex), NULL);
++	}
++	if (job->shader->vertex_uv >= 0) {
++		glEnableVertexAttribArray(job->shader->vertex_uv);
++		glVertexAttribPointer(job->shader->vertex_uv, 2, GL_FLOAT, GL_FALSE, sizeof(struct gfx_vertex), (void*)offsetof(struct gfx_vertex, u));
++	}
+ 
+ 	switch (job->shape) {
+ 	case GFX_RECTANGLE:
+@@ -656,8 +746,10 @@ void gfx_run_job(struct gfx_render_job *job)
+ 		break;
+ 	}
+ 
+-	glDisableVertexAttribArray(job->shader->vertex_pos);
+-	glDisableVertexAttribArray(job->shader->vertex_uv);
++	if (job->shader->vertex_pos >= 0)
++		glDisableVertexAttribArray(job->shader->vertex_pos);
++	if (job->shader->vertex_uv >= 0)
++		glDisableVertexAttribArray(job->shader->vertex_uv);
+ 	glBindVertexArray(0);
+ 	glUseProgram(0);
+ }
+diff --git a/src/vm.c b/src/vm.c
+index fa7aed9..dd72e7e 100644
+--- a/src/vm.c
++++ b/src/vm.c
+@@ -52,6 +52,9 @@
+ #include "scene.h"
+ #include "sprite.h"
+ #include "xsystem4.h"
++#ifdef XSYSTEM4_EMBEDDED
++#include "embedded.h"
++#endif
+ 
+ /* free_deferred_strings() lived in the fork's libsys4 (submodule pin 7f8d5298,
+  * now GC'd/unrecoverable). That build deferred string frees during the alloc
+@@ -2783,7 +2786,13 @@ static bool show_two_button_box(SDL_Window *window, const char *title, const cha
+ 	};
+ 	if (vm_ask_test.show)
+ 		return !vm_ask_test.show(&mbox, button);
++#ifdef XSYSTEM4_EMBEDDED
++	(void)mbox;
++	*button = 0;
++	return false;
++#else
+ 	return !SDL_ShowMessageBox(&mbox, button);
++#endif
+ }
+ 
+ /*
+@@ -2957,7 +2966,11 @@ _Noreturn void vm_image_unreadable(const char *path)
+ 		char *title = game_to_utf8(game, strlen(game));
+ 		const SDL_MessageBoxData mbox = { SDL_MESSAGEBOX_ERROR, window, title, text, 1, &button, NULL };
+ 		int pressed = 0;
++#ifdef XSYSTEM4_EMBEDDED
++		bool shown = vm_ask_test.show ? !vm_ask_test.show(&mbox, &pressed) : false;
++#else
+ 		bool shown = vm_ask_test.show ? !vm_ask_test.show(&mbox, &pressed) : !SDL_ShowMessageBox(&mbox, &pressed);
++#endif
+ 		free(title);
+ 		if (shown)
+ 			NOTICE("Message box shown: %s", line);
+@@ -2984,7 +2997,11 @@ static void system_call(enum syscall_code code)
+ {
+ 	switch (code) {
+ 	case SYS_EXIT: {// system.Exit(int nResult)
+-		vm_exit(stack_pop().i);
++		int code = stack_pop().i;
++#ifdef XSYSTEM4_EMBEDDED
++		xsystem4_host_game_exit(code);
++#endif
++		vm_exit(code);
+ 		break;
+ 	}
+ 	case SYS_GLOBAL_SAVE: { // system.GlobalSave(string szKeyName, string szFileName)
+@@ -3021,7 +3038,11 @@ static void system_call(enum syscall_code code)
+ 	case SYS_MSGBOX: {
+ 		struct string *str = stack_peek_string(0);
+ 		char *utf = game_to_utf8(str->text, str->size);
++#ifdef XSYSTEM4_EMBEDDED
++		WARNING("MsgBox: %s", utf);
++#else
+ 		SDL_ShowSimpleMessageBox(0, "xsystem4", utf, NULL);
++#endif
+ 		free(utf);
+ 		// XXX: caller S_POPs
+ 		break;
+@@ -3108,6 +3129,9 @@ static void system_call(enum syscall_code code)
+ 		struct string *str = stack_peek_string(0);
+ 		char *utf = game_to_utf8(str->text, str->size);
+ 		sys_warning("*GAME ERROR*: %s\n", utf);
++#ifdef XSYSTEM4_EMBEDDED
++		free(utf);
++#else
+ 		const SDL_MessageBoxData mbox = {
+ 			SDL_MESSAGEBOX_ERROR,
+ 			NULL,
+@@ -3121,6 +3145,7 @@ static void system_call(enum syscall_code code)
+ 			WARNING("Error displaying message box");
+ 		}
+ 		free(utf);
++#endif
+ 		if (result == 1) {
+ 			// stop execution
+ 			vm_exit(1);
+@@ -6258,7 +6283,14 @@ static void vm_execute(void)
+ 		vm_execute_depth--;
+ 		return;
+ 	}
++	uint32_t checkpoint_counter = 0;
+ 	for (;;) {
++#ifdef XSYSTEM4_EMBEDDED
++		if (!(checkpoint_counter++ & 4095))
++			xsystem4_host_checkpoint();
++#else
++		(void)checkpoint_counter;
++#endif
+ 		uint16_t opcode;
+ 		if (instr_ptr == VM_RETURN) {
+ 			vm_execute_depth--;
+@@ -6709,10 +6741,14 @@ int vm_execute_ain(struct ain *program)
+ 	ain = program;
+ 	main_thread_id = pthread_self();
+ 
++#ifdef XSYSTEM4_EMBEDDED
++	xsystem4_host_vm_started();
++#else
+ 	// Install signal handlers to dump trace buffer and C backtrace
+ 	signal(SIGABRT, sigabrt_handler);
+ 	signal(SIGUSR1, sigabrt_handler);
+ 	signal(SIGSEGV, sigabrt_handler);
++#endif
+ 
+ 	setjmp(reset_buf);
+ 
+@@ -6811,6 +6847,10 @@ _Noreturn void _vm_error(const char *fmt, ...)
+ 	vsnprintf(msg, 1024, fmt, ap);
+ 	va_end(ap);
+ 
++#ifdef XSYSTEM4_EMBEDDED
++	if (sys_error_handler)
++		sys_error_handler(msg);
++#endif
+ 	dbg_repl(DBG_STOP_ERROR, msg);
+ 	// sys_exit is _exit, so atexit handlers never run: finish a pending
+ 	// test-mode screenshot (XSYS4_SCREENSHOT_DIR) here.
+@@ -6825,7 +6865,18 @@ int vm_time(void)
+ 
+ void vm_sleep(int ms)
+ {
++#ifdef XSYSTEM4_EMBEDDED
++	while (ms > 8) {
++		SDL_Delay(8);
++		xsystem4_host_checkpoint();
++		ms -= 8;
++	}
++	if (ms > 0)
++		SDL_Delay(ms);
++	xsystem4_host_checkpoint();
++#else
+ 	SDL_Delay(ms);
++#endif
+ }
+ 
+ _Noreturn void vm_exit(int code)
+@@ -6834,6 +6885,9 @@ _Noreturn void vm_exit(int code)
+ 	// test-mode screenshot (XSYS4_SCREENSHOT_DIR) first.
+ 	gfx_wait_pixels_writes();
+ 	vm_free();
++#ifdef XSYSTEM4_EMBEDDED
++	xsystem4_host_vm_closed();
++#endif
+ #ifdef DEBUG_HEAP
+ 	for (size_t i = 0; i < heap_size; i++) {
+ 		if (heap[i].ref > 0)
+@@ -6843,3 +6897,11 @@ _Noreturn void vm_exit(int code)
+ #endif
+ 	sys_exit(code);
+ }
++
++#ifdef XSYSTEM4_EMBEDDED
++void xsystem4_vm_shutdown(void)
++{
++	gfx_wait_pixels_writes();
++	vm_free();
++}
++#endif
