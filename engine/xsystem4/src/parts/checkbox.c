@@ -167,6 +167,18 @@ void parts_checkbox_set_string(struct parts *parts, char **field, const char *va
  * the CN executable (0x7d863c ..); an SJIS release's ／檢查 is not known, and
  * neither are its pactex keys, so a box is only ever named by a GBK pactex.
  */
+static void checkbox_format_cg(const struct parts_checkbox *cb, bool checked,
+		const char *checked_mid, const char *state_suffix, char *out, size_t size)
+{
+	if (!checked)
+		snprintf(out, size, "%s%s", cb->over_cg_name ? cb->over_cg_name : cb->cg_name,
+				state_suffix);
+	else if (cb->over_checked_cg_name)
+		snprintf(out, size, "%s%s", cb->over_checked_cg_name, state_suffix);
+	else
+		snprintf(out, size, "%s%s%s", cb->cg_name, checked_mid, state_suffix);
+}
+
 static void checkbox_cg_name(const struct parts_checkbox *cb, bool checked, int state,
 		char *out, size_t size)
 {
@@ -176,16 +188,27 @@ static void checkbox_cg_name(const struct parts_checkbox *cb, bool checked, int 
 		"\xa3\xaf\xa5\xc0\xa5\xa6\xa5\xf3", // ／ダウン
 		"\xa3\xaf\x9f\x6f\x84\xbf",         // ／無効
 	};
+	static const char *const checked_mids[] = {
+		"\xa3\xaf\x99\x7a\xb2\xe9",         // ／檢查 (Traditional)
+		"\xa3\xaf\xbc\xec\xb2\xe9",         // ／检查 (Simplified)
+	};
+	static const char *const disabled_sc = "\xa3\xaf\xce\xde\x84\xbf"; // ／无効 (Simplified)
+
 	out[0] = '\0';
 	if (!cb->cg_name)
 		return;
-	if (!checked)
-		snprintf(out, size, "%s%s", cb->over_cg_name ? cb->over_cg_name : cb->cg_name,
-				suffix[state]);
-	else if (cb->over_checked_cg_name)
-		snprintf(out, size, "%s%s", cb->over_checked_cg_name, suffix[state]);
-	else
-		snprintf(out, size, "%s\xa3\xaf\x99\x7a\xb2\xe9%s", cb->cg_name, suffix[state]); // ／檢查
+	size_t nr_mids = (checked && !cb->over_checked_cg_name) ? 2 : 1;
+	const char *states[2] = { suffix[state], state == 3 ? disabled_sc : NULL };
+	size_t nr_states = state == 3 ? 2 : 1;
+
+	for (size_t m = 0; m < nr_mids; m++) {
+		for (size_t s = 0; s < nr_states; s++) {
+			checkbox_format_cg(cb, checked, checked_mids[m], states[s], out, size);
+			if (asset_exists_by_name(ASSET_CG, out, NULL))
+				return;
+		}
+	}
+	checkbox_format_cg(cb, checked, checked_mids[0], suffix[state], out, size);
 }
 
 static struct text_style widget_text_style(const struct parts_widget_font *font, int char_space)

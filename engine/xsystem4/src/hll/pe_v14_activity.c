@@ -407,16 +407,19 @@ static const char SJIS_ALPHA_CLIPPER[] = "\x83\x41\x83\x8b\x83\x74\x83\x40\x83\x
 static const char GBK_ALPHA_CLIPPER[]  = "\xa5\xa2\xa5\xeb\xa5\xd5\xa5\xa1\xa5\xaf\xa5\xea\xa5\xc3\xa5\xd1\xa9\x60"; /* アルファクリッパー (GBK) */
 /* static const char SJIS_NORMAL_STATE[]= "\x92\xca\x8f\xed\x8f\xf3\x91\xd4"; */ /* 通常状態 — unused, kept for reference */
 
-/* GBK property names (legacy fallback). */
+/* GBK property names (Traditional and Simplified CN layouts). */
 static const char GBK_POSITION[]    = "\xd7\xf9\x98\xcb";         /* 座標 (GBK) */
 static const char GBK_SHOW[]        = "\xb1\xed\xca\xbe";         /* 表示 (GBK) */
 static const char GBK_ALPHA[]       = "\xa5\xa2\xa5\xeb\xa5\xd5\xa5\xa1"; /* アルファ (GBK) */
-static const char GBK_ORIGIN_MODE[] = "\xd4\xad\xfc\x63\xd7\xf9\x98\xcb\xc4\xa3\xca\xbd"; /* 原點座標模式 (GBK) */
+static const char GBK_ORIGIN_MODE[]    = "\xd4\xad\xfc\x63\xd7\xf9\x98\xcb\xc4\xa3\xca\xbd"; /* 原點座標模式 (GBK) */
+static const char GBK_SC_ORIGIN_MODE[] = "\xd4\xad\xb5\xe3\xd7\xf9\x98\xcb\xc4\xa3\xca\xbd"; /* 原点座標模式 (GBK SC) */
+static const char GBK_TYPE_INFO_SC[]   = "\xd6\xd6\xc0\xe0\x84\x65\xc7\xe9\x88\xf3"; /* 种类別情報 (GBK SC) */
 static const char GBK_CG_MEI[]      = "\xa3\xc3\xa3\xc7\xc3\xfb"; /* ＣＧ名 (GBK) */
 static const char GBK_DEFORM[]      = "\x89\xe4\xd0\xce";     /* 変形 (GBK, native key 0x7dd09c) */
 static const char SJIS_DEFORM[]     = "\x95\xcf\x8c\x60";     /* 変形 (SJIS; no SJIS pactex was read) */
 /* static const char GBK_MUL_COLOR[]   = "\x81\x5c\xcb\xe3\xc9\xab"; */ /* 乗算色 (GBK) — unused */
-static const char GBK_DRAW_FILTER[] = "\xc3\xe8\xae\x8b\xa5\xd5\xa5\xa3\xa5\xeb\xa5\xbf"; /* 描畫フィルタ (GBK) */
+static const char GBK_DRAW_FILTER[]    = "\xc3\xe8\xae\x8b\xa5\xd5\xa5\xa3\xa5\xeb\xa5\xbf"; /* 描畫フィルタ (GBK) */
+static const char GBK_SC_DRAW_FILTER[] = "\xc3\xe8\xbb\xad\xa5\xd5\xa5\xa3\xa5\xeb\xa5\xbf"; /* 描画フィルタ (GBK SC) */
 static const char GBK_ADD_COLOR[]   = "\xbc\xd3\xcb\xe3\xc9\xab"; /* 加算色 (GBK) */
 static const char GBK_PARTS_TYPE[]  = "\xb2\xbf\xbc\xfe\xa5\xbf\xa5\xa4\xa5\xd7"; /* 部件タイプ (GBK) */
 static const char GBK_PANEL[]       = "\xa5\xd1\xa5\xcd\xa5\xeb"; /* パネル (GBK) */
@@ -428,10 +431,12 @@ static const char SJIS_ALPHA_GRADATION[] = "\x83\x41\x83\x8b\x83\x74\x83\x40\x83
 static const char GBK_ALPHA_GRADATION[] = "\xa5\xa2\xa5\xeb\xa5\xd5\xa5\xa1\xa5\xb0\xa5\xe9\xa5\xc7\xa9\x60\xa5\xb7\xa5\xe7\xa5\xf3";
 static const char GBK_BUTTON[]      = "\xa5\xdc\xa5\xbf\xa5\xf3"; /* ボタン (GBK katakana) */
 static const char GBK_CN_BUTTON[]   = "\xb0\xb4\xe2\x6f";         /* 按鈕 (GBK Chinese) */
-static const char GBK_SURFACE_AREA[] = "\xa5\xb5\xa1\xbc\xa5\xd5\xa5\xa7\xa5\xa4\xa5\xb9\xa5\xa8\xa5\xea\xa5\xa2"; /* サーフェイスエリア (GBK) */
+static const char GBK_SC_BUTTON[]   = "\xb0\xb4\xc5\xa5";         /* 按钮 (GBK SC) */
+static const char GBK_SURFACE_AREA[] = "\xa5\xb5\xa9\x60\xa5\xd5\xa5\xa7\xa5\xa4\xa5\xb9\xa5\xa8\xa5\xea\xa5\xa2"; /* サーフェイスエリア (GBK) */
 static const char GBK_CN_PANEL[]    = "\xb5\xcd\xb5\xc8\xbc\x89"; /* 低等級 (GBK CN panel type) */
 static const char GBK_SCALE[]       = "\x92\x88\xb4\xf3\xbf\x73\xd0\xa1"; /* 拡大縮小 (GBK) */
 static const char GBK_ROTATION[]    = "\xd0\xfd\xde\x44"; /* 回転 (GBK) */
+static const char GBK_SC_ROTATION[] = "\xd0\xfd\xd7\xaa"; /* 旋转 (GBK SC) */
 static const char GBK_MUL_COLOR[]   = "\x81\x5c\xcb\xe3\xc9\xab"; /* 乗算色 (GBK) */
 static const char GBK_CG_DETECT[]   = "\xa3\xc3\xa3\xc7\xc5\xd0\xb6\xa8\xb2\xbf\xbc\xfe"; /* ＣＧ判定部件 (GBK CG detection parts) */
 static const char SJIS_CG_DETECT[]  = "\x82\x62\x82\x66\x94\xbb\x92\xe8\x83\x70\x81\x5b\x83\x63"; /* ＣＧ判定パーツ (SJIS) */
@@ -441,6 +446,10 @@ static const char SJIS_CG_DETECT[]  = "\x82\x62\x82\x66\x94\xbb\x92\xe8\x83\x70\
 static const char SJIS_PIXEL_DECIDE[] = "\x83\x7d\x83\x45\x83\x58\x83\x4a\x81\x5b\x83\x5c\x83\x8b\x83\x73\x83\x4e\x83\x5a\x83\x8b\x94\xbb\x92\xe8"; /* マウスカーソルピクセル判定 */
 static const char GBK_PIXEL_DECIDE[] = "\xa5\xde\xa5\xa6\xa5\xb9\xa5\xab\xa9\x60\xa5\xbd\xa5\xeb\xa5\xd4\xa5\xaf\xa5\xbb\xa5\xeb\xc5\xd0\xb6\xa8";
 static const char GBK_CN_PIXEL_DECIDE[] = "\xca\xf3\x98\xcb\xd6\xb8\xe1\x98\xa5\xd4\xa5\xaf\xa5\xbb\xa5\xeb\xc5\xd0\xb6\xa8"; /* 鼠標指針ピクセル判定 */
+static const char GBK_SC_PIXEL_DECIDE[] = "\xca\xf3\xb1\xea\xd6\xb8\xd5\xeb\xa5\xd4\xa5\xaf\xa5\xbb\xa5\xeb\xc5\xd0\xb6\xa8"; /* 鼠标指针ピクセル判定 */
+
+#define PACTEX_KEYS(...) (const char *const[]){ __VA_ARGS__ }, \
+	(sizeof((const char *const[]){ __VA_ARGS__ }) / sizeof(const char *))
 
 /* --- Pactex tree parser --- */
 
@@ -479,11 +488,12 @@ static struct ex_tree *pactex_find_buhin(struct ex_tree *parent)
 static struct ex_tree *pactex_find_type_info(struct ex_tree *component)
 {
 	if (component->is_leaf) return NULL;
-	/* First try exact SJIS name match for 種類別情報 */
+	/* First try exact SJIS / Simplified GBK match for 種類別情報 / 种类別情報 */
 	for (unsigned i = 0; i < component->nr_children; i++) {
 		struct ex_tree *child = &component->children[i];
 		if (child->is_leaf) continue;
-		if (pactex_name_contains(child, SJIS_TYPE_INFO))
+		if (pactex_name_contains(child, SJIS_TYPE_INFO) ||
+		    pactex_name_contains(child, GBK_TYPE_INFO_SC))
 			return child;
 	}
 	/* Fallback: first non-leaf child that is NOT the children branch */
@@ -528,11 +538,20 @@ static bool pactex_find_int(struct ex_tree *node, const char *name, int *v)
 	return false;
 }
 
+static int pactex_get_int_any(struct ex_tree *node, const char *const *names, size_t count, int def)
+{
+	int v;
+	for (size_t i = 0; i < count; i++) {
+		if (pactex_find_int(node, names[i], &v))
+			return v;
+	}
+	return def;
+}
+
 static void pactex_apply_pixel_decide(struct ex_tree *node, int parts_no)
 {
-	int enabled = pactex_get_int(node, SJIS_PIXEL_DECIDE, -1);
-	if (enabled < 0) enabled = pactex_get_int(node, GBK_PIXEL_DECIDE, -1);
-	if (enabled < 0) enabled = pactex_get_int(node, GBK_CN_PIXEL_DECIDE, 0);
+	int enabled = pactex_get_int_any(node, PACTEX_KEYS(
+		SJIS_PIXEL_DECIDE, GBK_PIXEL_DECIDE, GBK_CN_PIXEL_DECIDE, GBK_SC_PIXEL_DECIDE), 0);
 	PE_SetPartsPixelDecide(parts_no, enabled != 0);
 }
 
@@ -545,10 +564,12 @@ static void pactex_apply_pixel_decide(struct ex_tree *node, int parts_no)
  * blocks neither the hover nor the click of the parts behind it. Only the CN
  * spelling is known; a missing key is 0, as the parser's default. */
 static const char GBK_CN_PASS_CURSOR[] = "\xa5\xaa\xa5\xf3\xd6\xb8\xe1\x98\xcd\xb8\xdf\x5e"; /* オン指針透過 */
+static const char GBK_SC_PASS_CURSOR[] = "\xa5\xaa\xa5\xf3\xd6\xb8\xd5\xeb\xcd\xb8\xdf\x5e"; /* オン指针透過 */
 
 static void pactex_apply_pass_cursor(struct ex_tree *node, int parts_no)
 {
-	PE_SetPassCursor(parts_no, pactex_get_int(node, GBK_CN_PASS_CURSOR, 0) == 1);
+	PE_SetPassCursor(parts_no, pactex_get_int_any(node,
+		PACTEX_KEYS(GBK_CN_PASS_CURSOR, GBK_SC_PASS_CURSOR), 0) == 1);
 }
 
 /* Native 0x5549cf: the component's own wheel flag is true only for the
@@ -601,10 +622,12 @@ static void pactex_apply_speed_up(struct ex_tree *node, int parts_no)
  * the AIN drops (CPartsMessageManager@CallDelegate); the whole-screen click
  * of the same release is sent in any case (parts/input.c). */
 static const char GBK_CN_CLICK_PERMISSION[] = "\xfc\x63\x93\xf4\xd4\x53\xbf\xc9"; /* 點擊許可 */
+static const char GBK_SC_CLICK_PERMISSION[] = "\xb5\xe3\xbb\xf7\xd4\x53\xbf\xc9"; /* 点击許可 */
 
 static void pactex_apply_click_permission(struct ex_tree *node, int parts_no)
 {
-	if (pactex_get_int(node, GBK_CN_CLICK_PERMISSION, 0) == 1)
+	if (pactex_get_int_any(node, PACTEX_KEYS(
+			GBK_CN_CLICK_PERMISSION, GBK_SC_CLICK_PERMISSION), 0) == 1)
 		PE_SetClickable(parts_no, true);
 }
 
@@ -634,7 +657,7 @@ static void pactex_apply_drag(struct ex_tree *node, int parts_no)
 {
 	if (ain->version < 14)
 		return;
-	if (pactex_get_int(node, SJIS_DRAG, 0) == 1 || pactex_get_int(node, GBK_DRAG, 0) == 1)
+	if (pactex_get_int_any(node, PACTEX_KEYS(SJIS_DRAG, GBK_DRAG), 0) == 1)
 		PE_SetDrag(parts_no, true);
 }
 
@@ -648,6 +671,16 @@ static struct ex_list *pactex_get_list(struct ex_tree *node, const char *name)
 		if (!c->name || strcmp(c->name->text, name) != 0) continue;
 		if (c->leaf.value.type == EX_LIST) return c->leaf.value.list;
 		break;
+	}
+	return NULL;
+}
+
+static struct ex_list *pactex_get_list_any(struct ex_tree *node, const char *const *names, size_t count)
+{
+	for (size_t i = 0; i < count; i++) {
+		struct ex_list *l = pactex_get_list(node, names[i]);
+		if (l)
+			return l;
 	}
 	return NULL;
 }
@@ -698,7 +731,8 @@ static bool pactex_get_surface_area(struct ex_tree *branch, int *x, int *y, int 
 	for (unsigned i = 0; i < branch->nr_children; i++) {
 		struct ex_tree *c = &branch->children[i];
 		if (!c->is_leaf || !c->name) continue;
-		if (strstr(c->name->text, SJIS_SURFACE_AREA) &&
+		if ((strstr(c->name->text, SJIS_SURFACE_AREA) ||
+		     strstr(c->name->text, GBK_SURFACE_AREA)) &&
 		    c->leaf.value.type == EX_LIST && c->leaf.value.list &&
 		    c->leaf.value.list->nr_items >= 4) {
 			struct ex_list *sa = c->leaf.value.list;
@@ -846,21 +880,37 @@ static bool pactex_apply_message_window(struct ex_tree *type_info, const char *p
  * then construct a CG (19) or text (21) even if its content is empty.
  * See native 0x5b8bc0, 0x533d80 and 0x4df5b0. Unknown types keep the legacy
  * loader/getter behavior; an arbitrary PARTS_TEXT state is not a text widget. */
+static bool pactex_name_is_any(struct ex_tree *node, const char *const *names, size_t count)
+{
+	if (!node->name) return false;
+	for (size_t i = 0; i < count; i++) {
+		if (!strcmp(node->name->text, names[i]))
+			return true;
+	}
+	return false;
+}
+
 static bool pactex_name_is(struct ex_tree *node, const char *sjis, const char *gbk)
 {
 	return node->name && (!strcmp(node->name->text, sjis) || !strcmp(node->name->text, gbk));
 }
 
-/* The value of the leaf named sjis or gbk among node's children. */
-static struct ex_value *pactex_leaf_value(struct ex_tree *node, const char *sjis, const char *gbk)
+/* The value of the leaf matching any candidate name among node's children. */
+static struct ex_value *pactex_leaf_value_any(struct ex_tree *node, const char *const *names, size_t count)
 {
 	if (!node || node->is_leaf) return NULL;
 	for (unsigned i = 0; i < node->nr_children; i++) {
 		struct ex_tree *c = &node->children[i];
-		if (c->is_leaf && pactex_name_is(c, sjis, gbk))
+		if (c->is_leaf && pactex_name_is_any(c, names, count))
 			return &c->leaf.value;
 	}
 	return NULL;
+}
+
+/* The value of the leaf named sjis or gbk among node's children. */
+static struct ex_value *pactex_leaf_value(struct ex_tree *node, const char *sjis, const char *gbk)
+{
+	return pactex_leaf_value_any(node, PACTEX_KEYS(sjis, gbk));
 }
 
 static float pactex_value_number(const struct ex_value *v, float fallback)
@@ -899,15 +949,18 @@ static void pactex_apply_key_wait(struct ex_tree *type_info, int parts_no)
 	}
 	struct string *name = cstr_to_string(cg && cg->type == EX_STRING && cg->s ? cg->s->text : "");
 	PE_SetKeyWaitCGName(parts_no, name,
-		pactex_value_number(pactex_leaf_value(block,
+		pactex_value_number(pactex_leaf_value_any(block, PACTEX_KEYS(
 			"\x8f\x7a\x8a\xc2\x82\x62\x82\x66\x8a\x4a\x8e\x6e\x94\xd4\xe5\x6a",
-			"\xd1\xad\xad\x68\xa3\xc3\xa3\xc7\xe9\x5f\xca\xbc\xb7\xac\xcc\x96"), 0),
-		pactex_value_number(pactex_leaf_value(block,
+			"\xd1\xad\xad\x68\xa3\xc3\xa3\xc7\xe9\x5f\xca\xbc\xb7\xac\xcc\x96",
+			"\xd1\xad\xbb\xb7\xa3\xc3\xa3\xc7\xbf\xaa\xca\xbc\xb7\xac\xba\xc5")), 0),
+		pactex_value_number(pactex_leaf_value_any(block, PACTEX_KEYS(
 			"\x8f\x7a\x8a\xc2\x82\x62\x82\x66\x96\x87\x9d\xc9",
-			"\xd1\xad\xad\x68\xa3\xc3\xa3\xc7\xc3\xb6\x94\xb5"), 0),
-		pactex_value_number(pactex_leaf_value(block,
+			"\xd1\xad\xad\x68\xa3\xc3\xa3\xc7\xc3\xb6\x94\xb5",
+			"\xd1\xad\xbb\xb7\xa3\xc3\xa3\xc7\xc3\xb6\xca\xfd")), 0),
+		pactex_value_number(pactex_leaf_value_any(block, PACTEX_KEYS(
 			"\x8f\x7a\x8a\xc2\x82\x62\x82\x66\x90\xd8\x8a\xb7\x8e\x9e\x8a\xd4",
-			"\xd1\xad\xad\x68\xa3\xc3\xa3\xc7\xc7\xd0\x93\x51\x95\x72\xe9\x67"), 0));
+			"\xd1\xad\xad\x68\xa3\xc3\xa3\xc7\xc7\xd0\x93\x51\x95\x72\xe9\x67",
+			"\xd1\xad\xbb\xb7\xa3\xc3\xa3\xc7\xc7\xd0\xbb\xbb\x95\x72\xe9\x67")), 0));
 	free_string(name);
 	name = cstr_to_string(flat && flat->type == EX_STRING && flat->s ? flat->s->text : "");
 	PE_SetKeyWaitFlatName(parts_no, name);
@@ -918,13 +971,13 @@ static void pactex_apply_key_wait(struct ex_tree *type_info, int parts_no)
 
 static int pactex_named_state(struct ex_tree *node)
 {
-	static const struct { const char *sjis, *gbk; } names[] = {
-		{"\x92\xca\x8f\xed\x8f\xf3\x91\xd4", "\xc6\xd5\xcd\xa8\xa0\xee\x91\x42"}, /* 通常状態 / 普通狀態 */
-		{"\x83\x49\x83\x93\x83\x4a\x81\x5b\x83\x5c\x83\x8b\x8f\xf3\x91\xd4", "\xa5\xaa\xa5\xf3\xd6\xb8\xe1\x98\xa0\xee\x91\x42"}, /* オンカーソル状態 / オン指針狀態 */
-		{"\x83\x4c\x81\x5b\x83\x5f\x83\x45\x83\x93\x8f\xf3\x91\xd4", "\xa5\xad\xa9\x60\xa5\xc0\xa5\xa6\xa5\xf3\xa0\xee\x91\x42"}, /* キーダウン状態 / キーダウン狀態 */
+	static const char *const names[PARTS_NR_STATES][3] = {
+		{ "\x92\xca\x8f\xed\x8f\xf3\x91\xd4", "\xc6\xd5\xcd\xa8\xa0\xee\x91\x42", "\xc6\xd5\xcd\xa8\xd7\xb4\x91\x42" }, /* 通常状態 / 普通狀態 / 普通状態 */
+		{ "\x83\x49\x83\x93\x83\x4a\x81\x5b\x83\x5c\x83\x8b\x8f\xf3\x91\xd4", "\xa5\xaa\xa5\xf3\xd6\xb8\xe1\x98\xa0\xee\x91\x42", "\xa5\xaa\xa5\xf3\xd6\xb8\xd5\xeb\xd7\xb4\x91\x42" }, /* オンカーソル状態 / オン指針狀態 / オン指针状態 */
+		{ "\x83\x4c\x81\x5b\x83\x5f\x83\x45\x83\x93\x8f\xf3\x91\xd4", "\xa5\xad\xa9\x60\xa5\xc0\xa5\xa6\xa5\xf3\xa0\xee\x91\x42", "\xa5\xad\xa9\x60\xa5\xc0\xa5\xa6\xa5\xf3\xd7\xb4\x91\x42" }, /* キーダウン状態 / キーダウン狀態 / キーダウン状態 */
 	};
 	for (int i = 0; i < PARTS_NR_STATES; i++) {
-		if (pactex_name_is(node, names[i].sjis, names[i].gbk))
+		if (pactex_name_is_any(node, names[i], 3))
 			return i + 1;
 	}
 	return 0;
@@ -935,8 +988,10 @@ static void pactex_apply_text_style(struct ex_tree *state, int parts_no, int pe_
 	for (unsigned i = 0; i < state->nr_children; i++) {
 		struct ex_tree *style = &state->children[i];
 		// Main text only: ruby has a separate decoration branch (0x5c34a8).
-		if (style->is_leaf || !pactex_name_is(style,
-				"\x83\x65\x83\x4c\x83\x58\x83\x67\x91\x95\x8f\xfc", "\xce\xc4\xb1\xbe\xd1\x62\xef\x97"))
+		if (style->is_leaf || !pactex_name_is_any(style, PACTEX_KEYS(
+				"\x83\x65\x83\x4c\x83\x58\x83\x67\x91\x95\x8f\xfc",
+				"\xce\xc4\xb1\xbe\xd1\x62\xef\x97",
+				"\xce\xc4\xb1\xbe\xd7\xb0\xef\x97")))
 			continue;
 		PE_SetFont(parts_no,
 			pactex_message_number(style, PACTEX_MW_FACE, 0),
@@ -1032,12 +1087,30 @@ static const char *const pactex_ept_names[PACTEX_EPT_COUNT] = {
 	"\xa5\xe0\xa9\x60\xa5\xd3\xa9\x60\xb2\xbf\xbc\xfe",             /* 30 ムービー部件 */
 };
 
+/* Simplified GBK counterparts where the v1.1 CN layout translates characters. */
+static const char *const pactex_ept_simp_names[PACTEX_EPT_COUNT] = {
+	[0]  = "\xb0\xb4\xc5\xa5",                                     /* 0 按钮 */
+	[1]  = "\xbc\xec\xb2\xe9\xa5\xdc\xa5\xc3\xa5\xaf\xa5\xb9",     /* 1 检查ボックス */
+	[2]  = "\xca\xfa\xb9\xf6\xb6\xaf\xcc\xf5",                     /* 2 竖滚动条 */
+	[3]  = "\xba\xe1\xb9\xf6\xb6\xaf\xcc\xf5",                     /* 3 横滚动条 */
+	[9]  = "\xa5\xe9\xa5\xb8\xa5\xaa\xb0\xb4\xc5\xa5\xa5\xdc\xa5\xc3\xa5\xaf\xa5\xb9", /* 9 ラジオ按钮ボックス */
+	[12] = "\xca\xfa\xbb\xac\xbf\xe9\xa9\x60\xa5\xd0\xa9\x60",     /* 12 竖滑块ーバー */
+	[13] = "\xba\xe1\xbb\xac\xbf\xe9\xa9\x60\xa5\xd0\xa9\x60",     /* 13 横滑块ーバー */
+	[16] = "\xa5\xd5\xa5\xa9\xa9\x60\xa5\xe0\xc8\xba\xd7\xe9",     /* 16 フォーム群组 */
+	[18] = "\xb5\xcd\xb5\xc8\xbc\xb6\xb2\xbf\xbc\xfe",             /* 18 低等级部件 */
+	[20] = "\xd1\xad\xbb\xb7\xa3\xc3\xa3\xc7\xb2\xbf\xbc\xfe",     /* 20 循环ＣＧ部件 */
+	[22] = "\xba\xe1\xa5\xb2\xa9\x60\xa5\xb8\xb2\xbf\xbc\xfe",     /* 22 横ゲージ部件 */
+	[23] = "\xca\xfa\xa5\xb2\xa9\x60\xa5\xb8\xb2\xbf\xbc\xfe",     /* 23 竖ゲージ部件 */
+	[24] = "\xca\xfd\xd7\xd6\xb2\xbf\xbc\xfe",                     /* 24 数字部件 */
+};
+
 static int pactex_native_type(const char *name)
 {
 	if (!name)
 		return -1;
 	for (int i = 0; i < PACTEX_EPT_COUNT; i++) {
-		if (!strcmp(name, pactex_ept_names[i]))
+		if (!strcmp(name, pactex_ept_names[i]) ||
+		    (pactex_ept_simp_names[i] && !strcmp(name, pactex_ept_simp_names[i])))
 			return i;
 	}
 	return -1;
@@ -1206,24 +1279,35 @@ static bool pactex_clip_span(int *pos, int *size, int limit)
 	return true;
 }
 
-static bool pactex_step_int(struct ex_tree *step, const char *sjis, const char *gbk, int *out)
+static bool pactex_step_int_any(struct ex_tree *step, const char *const *names, size_t count, int *out)
 {
-	struct ex_value *v = pactex_leaf_value(step, sjis, gbk);
+	struct ex_value *v = pactex_leaf_value_any(step, names, count);
 	if (!v || v->type != EX_INT)
 		return false;
 	*out = v->i;
 	return true;
 }
 
-static bool pactex_step_item(struct ex_tree *step, const char *sjis, const char *gbk,
+static bool pactex_step_int(struct ex_tree *step, const char *sjis, const char *gbk, int *out)
+{
+	return pactex_step_int_any(step, PACTEX_KEYS(sjis, gbk), out);
+}
+
+static bool pactex_step_item_any(struct ex_tree *step, const char *const *names, size_t count,
 		unsigned index, int *out)
 {
-	struct ex_value *v = pactex_leaf_value(step, sjis, gbk);
+	struct ex_value *v = pactex_leaf_value_any(step, names, count);
 	if (!v || v->type != EX_LIST || !v->list || index >= v->list->nr_items
 			|| v->list->items[index].value.type != EX_INT)
 		return false;
 	*out = v->list->items[index].value.i;
 	return true;
+}
+
+static bool pactex_step_item(struct ex_tree *step, const char *sjis, const char *gbk,
+		unsigned index, int *out)
+{
+	return pactex_step_item_any(step, PACTEX_KEYS(sjis, gbk), index, out);
 }
 
 static bool pactex_byte(int v)
@@ -1342,6 +1426,13 @@ static bool pactex_construction_step(struct ex_tree *node, struct pactex_cp_step
 	static const char dest_gbk[] = "\xcf\xc8\xbe\xd8\xd0\xce";
 	static const char color_sjis[] = "\x90\x46\x82\x50";		/* 色１ */
 	static const char color_gbk[] = "\xc9\xab\xa3\xb1";
+	static const char *const step_full_keys[] = {
+		"\x91\x53\x91\xcc", "\xc8\xab\xf3\x77", "\xc8\xab\xcc\xe5" }; /* 全体 / 全體 / 全体 */
+	static const char *const step_rotate_keys[] = {
+		"\x89\xf1\x93\x5d\x8a\x70\x93\x78", "\xd0\xfd\xde\x44\xbd\xc7\xb6\xc8",
+		"\xd0\xfd\xd7\xaa\xbd\xc7\xb6\xc8" }; /* 回転角度 / 旋轉角度 / 旋转角度 */
+	static const char *const step_radius_keys[] = {
+		"\x94\xbc\x8c\x61", "\xb0\xeb\x8f\xbd", "\xb0\xeb\xbe\xb6" }; /* 半径 / 半徑 / 半径 */
 	int full;
 
 	if (node->is_leaf || !pactex_step_int(node, "\x83\x52\x83\x7d\x83\x93\x83\x68",
@@ -1411,7 +1502,7 @@ static bool pactex_construction_step(struct ex_tree *node, struct pactex_cp_step
 		// 0x4fe870 (gray scale), 0x4ffa60 / 0x4ffba0 (a box blur of ブラー
 		// along the rows / the columns): over the rectangle, clipped as
 		// the fills' is, or with 全體 the whole surface.
-		if (!pactex_step_int(node, "\x91\x53\x91\xcc", "\xc8\xab\xf3\x77", &full)) /* 全体 / 全體 */
+		if (!pactex_step_int_any(node, step_full_keys, 3, &full)) /* 全体 / 全體 */
 			return false;
 		if (s->command != PACTEX_CP_GRAY_SCALE && !pactex_step_int(node, "\x83\x75\x83\x89\x81\x5b",
 				"\xa5\xd6\xa5\xe9\xa9\x60", &s->blur)) /* ブラー */
@@ -1442,7 +1533,7 @@ static bool pactex_construction_step(struct ex_tree *node, struct pactex_cp_step
 			if (!pactex_step_item(node, color_sjis, color_gbk, i, &s->color[i]))
 				return false;
 		}
-		if (!pactex_step_int(node, "\x91\x53\x91\xcc", "\xc8\xab\xf3\x77", &full)) /* 全体 / 全體 */
+		if (!pactex_step_int_any(node, step_full_keys, 3, &full)) /* 全体 / 全體 */
 			return false;
 		// The original clamps what commands 3 and 6 write to 0..255
 		// (0x5ac2a4, 0x5ac764), and command 4's colour (0x5ac581), whose
@@ -1487,7 +1578,7 @@ static bool pactex_construction_step(struct ex_tree *node, struct pactex_cp_step
 						&s->color2[i])) /* 色２ */
 				return false;
 		}
-		if (!pactex_step_int(node, "\x91\x53\x91\xcc", "\xc8\xab\xf3\x77", &full)) /* 全体 / 全體 */
+		if (!pactex_step_int_any(node, step_full_keys, 3, &full)) /* 全体 / 全體 */
 			return false;
 		// Command 3 clamps what it writes to 0..255 (0x5ac2a4); as for
 		// command 3, a state with a colour outside that (none in the game)
@@ -1570,7 +1661,7 @@ static bool pactex_construction_step(struct ex_tree *node, struct pactex_cp_step
 		// takes whole.
 		if (!pactex_step_item(node, color_sjis, color_gbk, 3, &s->color[3])
 				|| !pactex_step_item(node, "\x90\x46\x82\x51", "\xc9\xab\xa3\xb2", 3, &s->alpha2) /* 色２ */
-				|| !pactex_step_int(node, "\x91\x53\x91\xcc", "\xc8\xab\xf3\x77", &full)) /* 全体 / 全體 */
+				|| !pactex_step_int_any(node, step_full_keys, 3, &full)) /* 全体 / 全體 */
 			return false;
 		s->full = full == 1;
 		if (s->full) {
@@ -1616,15 +1707,15 @@ static bool pactex_construction_step(struct ex_tree *node, struct pactex_cp_step
 				&& !pactex_step_item(node, "\x8a\xdb\x82\xdf", "\xcd\xe8\xa4\xe1", 1, &round))
 			return false;
 		s->rotate = 0;
-		if ((v = pactex_leaf_value(node, "\x89\xf1\x93\x5d\x8a\x70\x93\x78",
-				"\xd0\xfd\xde\x44\xbd\xc7\xb6\xc8")) /* 回転角度 / 旋轉角度 */
-				&& !pactex_step_int(node, "\x89\xf1\x93\x5d\x8a\x70\x93\x78",
-					"\xd0\xfd\xde\x44\xbd\xc7\xb6\xc8", &s->rotate))
+		if (pactex_leaf_value_any(node, step_rotate_keys, 3)
+				&& !pactex_step_int_any(node, step_rotate_keys, 3, &s->rotate))
 			return false;
 		if (round == 1 || s->rotate % 360)
 			return false;
-		v = pactex_leaf_value(node, "\x8d\xc0\x95\x57\x88\xea\x97\x97",
-				"\xd7\xf9\x98\xcb\xbf\x82\xd3\x5b"); /* 座標一覧 / 座標總覽 */
+		v = pactex_leaf_value_any(node, PACTEX_KEYS(
+			"\x8d\xc0\x95\x57\x88\xea\x97\x97",
+			"\xd7\xf9\x98\xcb\xbf\x82\xd3\x5b",
+			"\xd7\xf9\x98\xcb\xd7\xdc\xc0\xc0")); /* 座標一覧 / 座標總覽 / 座標总览 */
 		s->points = v && v->type == EX_LIST ? v->list : NULL;
 		return pactex_polygon_points(s->points, surface_w, surface_h);
 	}
@@ -1661,10 +1752,8 @@ static bool pactex_construction_step(struct ex_tree *node, struct pactex_cp_step
 			return false;
 		s->round = item == 1;
 		s->rotate = 0;
-		if (pactex_leaf_value(node, "\x89\xf1\x93\x5d\x8a\x70\x93\x78",
-				"\xd0\xfd\xde\x44\xbd\xc7\xb6\xc8") /* 回転角度 / 旋轉角度 */
-				&& !pactex_step_int(node, "\x89\xf1\x93\x5d\x8a\x70\x93\x78",
-					"\xd0\xfd\xde\x44\xbd\xc7\xb6\xc8", &s->rotate))
+		if (pactex_leaf_value_any(node, step_rotate_keys, 3)
+				&& !pactex_step_int_any(node, step_rotate_keys, 3, &s->rotate))
 			return false;
 		if (s->rotate % 360)
 			return false;
@@ -1710,7 +1799,7 @@ static bool pactex_construction_step(struct ex_tree *node, struct pactex_cp_step
 			s->y += s->rx;
 			return pactex_disc_rows(s->rx);
 		}
-		if (!pactex_step_item(node, "\x94\xbc\x8c\x61", "\xb0\xeb\x8f\xbd", 0, &s->rx) /* 半径 / 半徑 */
+		if (!pactex_step_item_any(node, step_radius_keys, 3, 0, &s->rx) /* 半径 / 半徑 */
 				|| s->rx > PARTS_CP_CIRCLE_MAX_RADIUS)
 			return false;
 		if (s->command == PACTEX_CP_FILL_CIRCLE_BLEND && s->rx > 0)
@@ -1719,7 +1808,7 @@ static bool pactex_construction_step(struct ex_tree *node, struct pactex_cp_step
 	case PACTEX_CP_FILL_CIRCLE_AMAP:
 		// 0x507640: the alpha of a disc of 半徑[0] around 先矩形 X,Y.
 		if (!pactex_step_item(node, color_sjis, color_gbk, 3, &s->color[3])
-				|| !pactex_step_item(node, "\x94\xbc\x8c\x61", "\xb0\xeb\x8f\xbd", 0, &s->rx)) /* 半径 / 半徑 */
+				|| !pactex_step_item_any(node, step_radius_keys, 3, 0, &s->rx)) /* 半径 / 半徑 */
 			return false;
 		return s->rx <= PARTS_CP_CIRCLE_MAX_RADIUS && pactex_byte(s->color[3]);
 	case PACTEX_CP_TILE_CG: {
@@ -1731,7 +1820,7 @@ static bool pactex_construction_step(struct ex_tree *node, struct pactex_cp_step
 		if (!s->cg_name)
 			s->cg_name = pactex_get_string(node, GBK_CG_MEI);
 		if (!s->cg_name || !asset_exists_by_name(ASSET_CG, s->cg_name, &cg_no)
-				|| !pactex_step_int(node, "\x91\x53\x91\xcc", "\xc8\xab\xf3\x77", &full)) /* 全体 / 全體 */
+				|| !pactex_step_int_any(node, step_full_keys, 3, &full)) /* 全体 / 全體 */
 			return false;
 		s->full = full == 1;
 		return s->full || (s->x >= 0 && s->y >= 0 && s->w > 0 && s->h > 0
@@ -1838,14 +1927,13 @@ static bool pactex_construction_step(struct ex_tree *node, struct pactex_cp_step
 	}
 	case PACTEX_CP_FILL_PIE_AMAP:
 		if (!pactex_step_item(node, color_sjis, color_gbk, 3, &s->color[3])
-				|| !pactex_step_item(node, "\x94\xbc\x8c\x61", "\xb0\xeb\x8f\xbd", 0, &s->rx) /* 半径 / 半徑 */
-				|| !pactex_step_item(node, "\x94\xbc\x8c\x61", "\xb0\xeb\x8f\xbd", 1, &s->ry)
+				|| !pactex_step_item_any(node, step_radius_keys, 3, 0, &s->rx) /* 半径 / 半徑 */
+				|| !pactex_step_item_any(node, step_radius_keys, 3, 1, &s->ry)
 				|| !pactex_step_item(node, "\x89\x7e\x8c\xca\x8a\x70\x93\x78",
 					"\x83\xd2\xbb\xa1\xbd\xc7\xb6\xc8", 0, &s->start) /* 円弧角度 */
 				|| !pactex_step_item(node, "\x89\x7e\x8c\xca\x8a\x70\x93\x78",
 					"\x83\xd2\xbb\xa1\xbd\xc7\xb6\xc8", 1, &s->sweep)
-				|| !pactex_step_int(node, "\x89\xf1\x93\x5d\x8a\x70\x93\x78",
-					"\xd0\xfd\xde\x44\xbd\xc7\xb6\xc8", &s->rotate)) /* 回転角度 / 旋轉角度 */
+				|| !pactex_step_int_any(node, step_rotate_keys, 3, &s->rotate)) /* 回転角度 / 旋轉角度 */
 			return false;
 		// Only what parts_build_construction_process reproduces: no
 		// rotation, and sector edges on the axes (within one turn), where
@@ -1892,8 +1980,7 @@ static struct pactex_cp_step *pactex_construction_plan(struct ex_tree *state, in
 	struct ex_tree *list = pactex_construction_steps(state);
 	if (!list || !list->nr_children)
 		return NULL;
-	struct ex_list *area = pactex_get_list(state, SJIS_SURFACE_AREA);
-	if (!area) area = pactex_get_list(state, "\xa5\xb5\xa9\x60\xa5\xd5\xa5\xa7\xa5\xa4\xa5\xb9\xa5\xa8\xa5\xea\xa5\xa2");
+	struct ex_list *area = pactex_get_list_any(state, PACTEX_KEYS(SJIS_SURFACE_AREA, GBK_SURFACE_AREA));
 	for (unsigned i = 0; area && i < area->nr_items; i++) {
 		if (area->items[i].value.type != EX_INT || area->items[i].value.i)
 			return NULL;
@@ -2235,14 +2322,14 @@ static void pactex_apply_numeral_state(struct ex_tree *state, int parts_no, int 
 		parts_get_numeral(parts_get(parts_no), pe_state - 1);
 	}
 	free_string(cg);
-	PE_SetNumeralNumber(parts_no, pactex_get_int(state, "\x90\x94\x92\x6c", /* 数値 */
-		pactex_get_int(state, "\x94\xb5\xd6\xb5", 0)), pe_state); /* 數值 */
+	PE_SetNumeralNumber(parts_no, pactex_get_int_any(state, PACTEX_KEYS(
+		"\x90\x94\x92\x6c", "\x94\xb5\xd6\xb5", "\xca\xfd\xd6\xb5"), 0), pe_state); /* 数値 / 數值 / 数值 */
 	PE_SetNumeralShowComma(parts_no, pactex_get_int(state, "\x83\x52\x83\x93\x83\x7d\x95\x5c\x8e\xa6", /* コンマ表示 */
 		pactex_get_int(state, "\xa5\xb3\xa5\xf3\xa5\xde\xb1\xed\xca\xbe", 0)) == 1, pe_state);
 	PE_SetNumeralSpace(parts_no, pactex_get_int(state, "\x8e\x9a\x8a\xd4\x8a\x75", /* 字間隔 */
 		pactex_get_int(state, "\xd7\xd6\xe9\x67\xb8\xf4", 0)), pe_state);
-	PE_SetNumeralLength(parts_no, pactex_get_int(state, "\x8c\x85\x90\x94", /* 桁数 */
-		pactex_get_int(state, "\xe8\xec\x94\xb5", 0)), pe_state); /* 桁數 */
+	PE_SetNumeralLength(parts_no, pactex_get_int_any(state, PACTEX_KEYS(
+		"\x8c\x85\x90\x94", "\xe8\xec\x94\xb5", "\xe8\xec\xca\xfd"), 0), pe_state); /* 桁数 / 桁數 / 桁数 */
 	PE_SetNumeralShowPadding(parts_no, pactex_get_int(state, "\x83\x5b\x83\x8d\x83\x70\x83\x66\x83\x42\x83\x93\x83\x4f", /* ゼロパディング */
 		pactex_get_int(state, "\xa5\xbc\xa5\xed\xa5\xd1\xa5\xc7\xa5\xa3\xa5\xf3\xa5\xb0", 0)) == 1, pe_state);
 }
@@ -2275,8 +2362,8 @@ static void pactex_apply_gauge_state(struct ex_tree *state, int parts_no, int pe
 	float d = pactex_gauge_number(state, "\x95\xaa\x95\xea", "\xb7\xd6\xc4\xb8");
 	if (vertical) PE_SetVGaugeRate(parts_no, n, d, pe_state);
 	else PE_SetHGaugeRate(parts_no, n, d, pe_state);
-	g->reverse = pactex_get_int(state, "\x94\xbd\x93\x5d",
-		pactex_get_int(state, "\xb7\xb4\xde\x44", 0)) != 0;
+	g->reverse = pactex_get_int_any(state, PACTEX_KEYS(
+		"\x94\xbd\x93\x5d", "\xb7\xb4\xde\x44", "\xb7\xb4\xd7\xaa"), 0) != 0; /* 反転 / 反轉 / 反转 */
 }
 
 static bool pactex_apply_low_level_state(struct ex_tree *state, int parts_no, int pe_state)
@@ -2338,8 +2425,7 @@ static bool pactex_apply_low_level_state(struct ex_tree *state, int parts_no, in
 	}
 	parts->component_state_type[pe_state - 1] = type;
 	// Use the matching setter: the CG setter would destroy a text state.
-	struct ex_list *area = pactex_get_list(state, SJIS_SURFACE_AREA);
-	if (!area) area = pactex_get_list(state, "\xa5\xb5\xa9\x60\xa5\xd5\xa5\xa7\xa5\xa4\xa5\xb9\xa5\xa8\xa5\xea\xa5\xa2");
+	struct ex_list *area = pactex_get_list_any(state, PACTEX_KEYS(SJIS_SURFACE_AREA, GBK_SURFACE_AREA));
 	int x, y, w, h;
 	if (area && area->nr_items >= 4 &&
 			area->items[0].value.type == EX_INT && area->items[1].value.type == EX_INT &&
@@ -2428,34 +2514,52 @@ static void pactex_resolve_scroll_links(struct activity *act)
  * pactex was read: an SJIS release's spellings are not known and none is
  * guessed, so only a pactex with these names makes a check box. The font's
  * keys and the two spacings are those of pactex_message_keys. */
-#define PACTEX_CB_BUTTON_COLOR "\xb0\xb4\xe2\x6f\xa4\xce\xc9\xab"	/* 按鈕の色 */
-#define PACTEX_CB_ENABLE "\xd3\xd0\x84\xbf\xa0\xee\x91\x42"		/* 有効狀態 */
-#define PACTEX_CB_CHECKED "\x99\x7a\xb2\xe9\xa0\xee\x91\x42"		/* 檢查狀態 */
-#define PACTEX_CB_OVER "\xb8\xb2\xc9\x77"				/* 覆蓋 */
-#define PACTEX_CB_OVER_CHECKED PACTEX_CB_OVER "\x99\x7a\xb2\xe9"	/* 覆蓋檢查 */
-#define PACTEX_CB_FLAT "\xa5\xd5\xa5\xe9\xa5\xc3\xa5\xc8\xc3\xfb"	/* フラット名 */
-#define PACTEX_CB_TEXT "\xce\xc4\xb1\xbe"				/* 文本 */
-#define PACTEX_CB_TEXT_POS PACTEX_CB_TEXT "\xce\xbb\xd6\xc3"		/* 文本位置 */
-#define PACTEX_CB_BUTTON_MODE "\xb0\xb4\xe2\x6f\xc4\xa3\xca\xbd"	/* 按鈕模式 */
-#define PACTEX_RADIO_LIST "\x99\x7a\xb2\xe9\xa5\xdc\xa5\xc3\xa5\xaf\xa5\xb9\xa5\xea\xa5\xb9\xa5\xc8" /* 檢查ボックスリスト */
+#define PACTEX_CB_BUTTON_COLOR    "\xb0\xb4\xe2\x6f\xa4\xce\xc9\xab"	/* 按鈕の色 */
+#define PACTEX_CB_BUTTON_COLOR_SC "\xb0\xb4\xc5\xa5\xa4\xce\xc9\xab"	/* 按钮の色 */
+#define PACTEX_CB_ENABLE          "\xd3\xd0\x84\xbf\xa0\xee\x91\x42"	/* 有効狀態 */
+#define PACTEX_CB_ENABLE_SC       "\xd3\xd0\x84\xbf\xd7\xb4\x91\x42"	/* 有効状態 */
+#define PACTEX_CB_CHECKED         "\x99\x7a\xb2\xe9\xa0\xee\x91\x42"	/* 檢查狀態 */
+#define PACTEX_CB_CHECKED_SC      "\xbc\xec\xb2\xe9\xd7\xb4\x91\x42"	/* 检查状態 */
+#define PACTEX_CB_OVER            "\xb8\xb2\xc9\x77"			/* 覆蓋 */
+#define PACTEX_CB_OVER_SC         "\xb8\xb2\xb8\xc7"			/* 覆盖 */
+#define PACTEX_CB_OVER_CHECKED    PACTEX_CB_OVER "\x99\x7a\xb2\xe9"	/* 覆蓋檢查 */
+#define PACTEX_CB_OVER_CHECKED_SC PACTEX_CB_OVER_SC "\xbc\xec\xb2\xe9"	/* 覆盖检查 */
+#define PACTEX_CB_FLAT            "\xa5\xd5\xa5\xe9\xa5\xc3\xa5\xc8\xc3\xfb"	/* フラット名 */
+#define PACTEX_CB_TEXT            "\xce\xc4\xb1\xbe"			/* 文本 */
+#define PACTEX_CB_TEXT_POS        PACTEX_CB_TEXT "\xce\xbb\xd6\xc3"	/* 文本位置 */
+#define PACTEX_CB_BUTTON_MODE     "\xb0\xb4\xe2\x6f\xc4\xa3\xca\xbd"	/* 按鈕模式 */
+#define PACTEX_CB_BUTTON_MODE_SC  "\xb0\xb4\xc5\xa5\xc4\xa3\xca\xbd"	/* 按钮模式 */
+#define PACTEX_RADIO_LIST         "\x99\x7a\xb2\xe9\xa5\xdc\xa5\xc3\xa5\xaf\xa5\xb9\xa5\xea\xa5\xb9\xa5\xc8" /* 檢查ボックスリスト */
+#define PACTEX_RADIO_LIST_SC      "\xbc\xec\xb2\xe9\xa5\xdc\xa5\xc3\xa5\xaf\xa5\xb9\xa5\xea\xa5\xb9\xa5\xc8" /* 检查ボックスリスト */
 
 static struct ex_value *pactex_cn_value(struct ex_tree *node, const char *key)
 {
 	return pactex_leaf_value(node, key, key);
 }
 
-static int pactex_cn_item(struct ex_tree *node, const char *key, unsigned index, int fallback)
+static struct ex_value *pactex_cn_value_any(struct ex_tree *node, const char *k1, const char *k2)
 {
-	struct ex_value *v = pactex_cn_value(node, key);
+	return pactex_leaf_value_any(node, PACTEX_KEYS(k1, k2));
+}
+
+static int pactex_cn_item_any(struct ex_tree *node, const char *k1, const char *k2,
+		unsigned index, int fallback)
+{
+	struct ex_value *v = pactex_cn_value_any(node, k1, k2);
 	if (!v || v->type != EX_LIST || !v->list || index >= v->list->nr_items)
 		return fallback;
 	return pactex_value_number(&v->list->items[index].value, fallback);
 }
 
+static const char *pactex_cn_string_any(struct ex_tree *node, const char *k1, const char *k2)
+{
+	struct ex_value *v = pactex_cn_value_any(node, k1, k2);
+	return v && v->type == EX_STRING && v->s ? v->s->text : "";
+}
+
 static const char *pactex_cn_string(struct ex_tree *node, const char *key)
 {
-	struct ex_value *v = pactex_cn_value(node, key);
-	return v && v->type == EX_STRING && v->s ? v->s->text : "";
+	return pactex_cn_string_any(node, key, key);
 }
 
 // A colour of the font as the loader keeps it (0x52c1c9 ..): within 0..255.
@@ -2476,13 +2580,13 @@ static int pactex_color_byte(int v)
 static void pactex_apply_check_box(struct ex_tree *type_info, struct parts *p)
 {
 	struct parts_checkbox *cb = parts_get_checkbox(p);
-	cb->w = pactex_cn_item(type_info, GBK_SIZE, 0, 16);
-	cb->h = pactex_cn_item(type_info, GBK_SIZE, 1, 16);
-	cb->enable = (int)pactex_value_number(pactex_cn_value(type_info, PACTEX_CB_ENABLE), 1) == 1;
-	cb->checked = (int)pactex_value_number(pactex_cn_value(type_info, PACTEX_CB_CHECKED), 0) == 1;
-	cb->r = pactex_cn_item(type_info, PACTEX_CB_BUTTON_COLOR, 0, 200);
-	cb->g = pactex_cn_item(type_info, PACTEX_CB_BUTTON_COLOR, 1, 200);
-	cb->b = pactex_cn_item(type_info, PACTEX_CB_BUTTON_COLOR, 2, 200);
+	cb->w = pactex_cn_item_any(type_info, GBK_SIZE, GBK_SIZE, 0, 16);
+	cb->h = pactex_cn_item_any(type_info, GBK_SIZE, GBK_SIZE, 1, 16);
+	cb->enable = (int)pactex_value_number(pactex_cn_value_any(type_info, PACTEX_CB_ENABLE, PACTEX_CB_ENABLE_SC), 1) == 1;
+	cb->checked = (int)pactex_value_number(pactex_cn_value_any(type_info, PACTEX_CB_CHECKED, PACTEX_CB_CHECKED_SC), 0) == 1;
+	cb->r = pactex_cn_item_any(type_info, PACTEX_CB_BUTTON_COLOR, PACTEX_CB_BUTTON_COLOR_SC, 0, 200);
+	cb->g = pactex_cn_item_any(type_info, PACTEX_CB_BUTTON_COLOR, PACTEX_CB_BUTTON_COLOR_SC, 1, 200);
+	cb->b = pactex_cn_item_any(type_info, PACTEX_CB_BUTTON_COLOR, PACTEX_CB_BUTTON_COLOR_SC, 2, 200);
 	cb->font.type = pactex_message_number(type_info, PACTEX_MW_FACE, 0);
 	cb->font.size = pactex_message_number(type_info, PACTEX_MW_SIZE, 16);
 	cb->font.r = pactex_color_byte(pactex_message_item(type_info, PACTEX_MW_COLOR, 0, 255));
@@ -2495,17 +2599,26 @@ static void pactex_apply_check_box(struct ex_tree *type_info, struct parts *p)
 	cb->font.edge_b = pactex_color_byte(pactex_message_item(type_info, PACTEX_MW_EDGE_COLOR, 2, 0));
 	parts_checkbox_set_string(p, &cb->cg_name, pactex_cn_string(type_info, GBK_CG_MEI));
 	parts_checkbox_set_string(p, &cb->over_cg_name,
-			pactex_cn_string(type_info, PACTEX_CB_OVER "\xa3\xc3\xa3\xc7\xc3\xfb"));
+			pactex_cn_string_any(type_info,
+				PACTEX_CB_OVER "\xa3\xc3\xa3\xc7\xc3\xfb",
+				PACTEX_CB_OVER_SC "\xa3\xc3\xa3\xc7\xc3\xfb"));
 	parts_checkbox_set_string(p, &cb->over_checked_cg_name,
-			pactex_cn_string(type_info, PACTEX_CB_OVER_CHECKED "\xa3\xc3\xa3\xc7\xc3\xfb"));
+			pactex_cn_string_any(type_info,
+				PACTEX_CB_OVER_CHECKED "\xa3\xc3\xa3\xc7\xc3\xfb",
+				PACTEX_CB_OVER_CHECKED_SC "\xa3\xc3\xa3\xc7\xc3\xfb"));
 	parts_checkbox_set_string(p, &cb->flat_name, pactex_cn_string(type_info, PACTEX_CB_FLAT));
 	parts_checkbox_set_string(p, &cb->over_flat_name,
-			pactex_cn_string(type_info, PACTEX_CB_OVER PACTEX_CB_FLAT));
+			pactex_cn_string_any(type_info,
+				PACTEX_CB_OVER PACTEX_CB_FLAT,
+				PACTEX_CB_OVER_SC PACTEX_CB_FLAT));
 	parts_checkbox_set_string(p, &cb->over_checked_flat_name,
-			pactex_cn_string(type_info, PACTEX_CB_OVER_CHECKED PACTEX_CB_FLAT));
+			pactex_cn_string_any(type_info,
+				PACTEX_CB_OVER_CHECKED PACTEX_CB_FLAT,
+				PACTEX_CB_OVER_CHECKED_SC PACTEX_CB_FLAT));
 	parts_checkbox_set_string(p, &cb->text, pactex_cn_string(type_info, PACTEX_CB_TEXT));
 	cb->text_pos = pactex_value_number(pactex_cn_value(type_info, PACTEX_CB_TEXT_POS), 4);
-	cb->button_mode = (int)pactex_value_number(pactex_cn_value(type_info, PACTEX_CB_BUTTON_MODE), 0) == 1;
+	cb->button_mode = (int)pactex_value_number(pactex_cn_value_any(type_info,
+			PACTEX_CB_BUTTON_MODE, PACTEX_CB_BUTTON_MODE_SC), 0) == 1;
 	cb->char_space = pactex_message_number(type_info, PACTEX_MW_CHAR_SPACE, 0);
 	cb->line_space = pactex_message_number(type_info, PACTEX_MW_LINE_SPACE, 0);
 	// The widget's inner parts take the click whatever 點擊許可 says
@@ -2558,7 +2671,7 @@ static int pactex_nr_radio_links;
 static void pactex_apply_radio_box(struct ex_tree *type_info, struct parts *p)
 {
 	parts_get_radio_box(p);
-	struct ex_value *v = pactex_cn_value(type_info, PACTEX_RADIO_LIST);
+	struct ex_value *v = pactex_cn_value_any(type_info, PACTEX_RADIO_LIST, PACTEX_RADIO_LIST_SC);
 	if (!v || v->type != EX_LIST || !v->list)
 		return;
 	for (unsigned i = 0; i < v->list->nr_items; i++) {
@@ -2600,9 +2713,12 @@ static void pactex_resolve_radio_links(struct activity *act)
 /* The keys of the component parser (0x553650) for the sounds and the
  * on-cursor show link, as the CN executable spells them; no SJIS pactex was
  * read, so no SJIS spelling is guessed. */
-#define PACTEX_ON_CURSOR_SOUND "\xa5\xaa\xa5\xf3\xd6\xb8\xe1\x98\xd2\xf4\xd0\xa7"	/* オン指針音效 0x7db0b4 */
-#define PACTEX_CLICK_SOUND "\xfc\x63\x93\xf4\xd2\xf4\xd0\xa7"				/* 點擊音效 0x7db0a4 */
-#define PACTEX_ON_CURSOR_SHOW_LINK "\xa5\xaa\xa5\xf3\xd6\xb8\xe1\x98\xb1\xed\xca\xbe\xdf\x42\x84\xd3" /* オン指針表示連動 0x7db054 */
+#define PACTEX_ON_CURSOR_SOUND        "\xa5\xaa\xa5\xf3\xd6\xb8\xe1\x98\xd2\xf4\xd0\xa7"	/* オン指針音效 0x7db0b4 */
+#define PACTEX_ON_CURSOR_SOUND_SC     "\xa5\xaa\xa5\xf3\xd6\xb8\xd5\xeb\xd2\xf4\xd0\xa7"	/* オン指针音效 */
+#define PACTEX_CLICK_SOUND            "\xfc\x63\x93\xf4\xd2\xf4\xd0\xa7"			/* 點擊音效 0x7db0a4 */
+#define PACTEX_CLICK_SOUND_SC         "\xb5\xe3\xbb\xf7\xd2\xf4\xd0\xa7"			/* 点击音效 */
+#define PACTEX_ON_CURSOR_SHOW_LINK    "\xa5\xaa\xa5\xf3\xd6\xb8\xe1\x98\xb1\xed\xca\xbe\xdf\x42\x84\xd3" /* オン指針表示連動 0x7db054 */
+#define PACTEX_ON_CURSOR_SHOW_LINK_SC "\xa5\xaa\xa5\xf3\xd6\xb8\xd5\xeb\xb1\xed\xca\xbe\xdf\x42\x84\xd3" /* オン指针表示連動 */
 
 /* オン指針音效 and 點擊音效 (0x554a04..0x554ab4): strings with an empty
  * default, into the sound names 2 and 3 (0x554bd0(i): +0x12c + i * 0x18 of
@@ -2611,12 +2727,12 @@ static void pactex_resolve_radio_links(struct activity *act)
  * every component of the game has both keys as strings). */
 static void pactex_apply_sound_names(struct ex_tree *node, int parts_no)
 {
-	static const struct { const char *key; int slot; } keys[] = {
-		{ PACTEX_ON_CURSOR_SOUND, 2 },
-		{ PACTEX_CLICK_SOUND, 3 },
+	static const struct { const char *key, *key_sc; int slot; } keys[] = {
+		{ PACTEX_ON_CURSOR_SOUND, PACTEX_ON_CURSOR_SOUND_SC, 2 },
+		{ PACTEX_CLICK_SOUND, PACTEX_CLICK_SOUND_SC, 3 },
 	};
 	for (unsigned i = 0; i < sizeof(keys) / sizeof(keys[0]); i++) {
-		struct ex_value *v = pactex_cn_value(node, keys[i].key);
+		struct ex_value *v = pactex_cn_value_any(node, keys[i].key, keys[i].key_sc);
 		if (v && v->type == EX_STRING && v->s && v->s->size)
 			parts_set_sound_name(parts_get(parts_no), keys[i].slot, v->s->text, v->s->size);
 	}
@@ -2640,7 +2756,8 @@ static int pactex_alias_first, pactex_alias_end;	/* act->parts[first..end) */
 
 static void pactex_add_show_link(struct ex_tree *node, int parts_no)
 {
-	struct ex_value *v = pactex_cn_value(node, PACTEX_ON_CURSOR_SHOW_LINK);
+	struct ex_value *v = pactex_cn_value_any(node,
+		PACTEX_ON_CURSOR_SHOW_LINK, PACTEX_ON_CURSOR_SHOW_LINK_SC);
 	if (!v || v->type != EX_STRING || !v->s || !v->s->size)
 		return;
 	if (pactex_nr_show_links >= PACTEX_MAX_SHOW_LINKS) {
@@ -2737,7 +2854,9 @@ static void pactex_apply_properties(struct ex_tree *node, int parts_no)
 	 * (native parser 0x553dfa stores it at parts +0xac; see
 	 * parts->edit_hidden). Only the CN spelling is known. */
 	parts_set_edit_hidden(parts_get(parts_no),
-		!pactex_get_int(node, "\xbe\x8e\xdd\x8b\xc9\xcf\xb1\xed\xca\xbe", 1));
+		!pactex_get_int_any(node, PACTEX_KEYS(
+			"\xbe\x8e\xdd\x8b\xc9\xcf\xb1\xed\xca\xbe",
+			"\xb1\xe0\xbc\xad\xc9\xcf\xb1\xed\xca\xbe"), 1)); /* 編輯上表示 / 编辑上表示 */
 
 	/* Extract alpha: アルファ = int 0-255 */
 	int alpha = pactex_get_int(node, SJIS_ALPHA, -1);
@@ -2761,8 +2880,8 @@ static void pactex_apply_properties(struct ex_tree *node, int parts_no)
 	pactex_apply_sound_names(node, parts_no);
 
 	/* Extract origin mode: 原点座標モード = int */
-	int origin_mode = pactex_get_int(node, SJIS_ORIGIN_MODE, -1);
-	if (origin_mode < 0) origin_mode = pactex_get_int(node, GBK_ORIGIN_MODE, 1);
+	int origin_mode = pactex_get_int_any(node, PACTEX_KEYS(
+		SJIS_ORIGIN_MODE, GBK_ORIGIN_MODE, GBK_SC_ORIGIN_MODE), 1);
 	PE_SetPartsOriginPosMode(parts_no, origin_mode);
 
 	/* Extract scale: 拡大縮小 = list[2] = (sx, sy) as float */
@@ -2780,8 +2899,8 @@ static void pactex_apply_properties(struct ex_tree *node, int parts_no)
 	}
 
 	/* Extract rotation: 回転 = list[3] = (rx, ry, rz) as float */
-	struct ex_list *rot = pactex_get_list(node, SJIS_ROTATION);
-	if (!rot) rot = pactex_get_list(node, GBK_ROTATION);
+	struct ex_list *rot = pactex_get_list_any(node, PACTEX_KEYS(
+		SJIS_ROTATION, GBK_ROTATION, GBK_SC_ROTATION));
 	if (rot && rot->nr_items >= 3) {
 		float rz = (rot->items[2].value.type == EX_FLOAT) ?
 			rot->items[2].value.f : (float)rot->items[2].value.i;
@@ -2801,8 +2920,8 @@ static void pactex_apply_properties(struct ex_tree *node, int parts_no)
 	/* Extract draw filter: 描画フィルタ = int (0 normal, 1 additive,
 	 * 2 multiply, 3 screen). The CN files spell it 描畫フィルタ; without the
 	 * GBK key SceneLogo's gloss (3) was drawn as a plain yellow band. */
-	int draw_filter = pactex_get_int(node, SJIS_DRAW_FILTER, -1);
-	if (draw_filter < 0) draw_filter = pactex_get_int(node, GBK_DRAW_FILTER, -1);
+	int draw_filter = pactex_get_int_any(node, PACTEX_KEYS(
+		SJIS_DRAW_FILTER, GBK_DRAW_FILTER, GBK_SC_DRAW_FILTER), -1);
 	if (draw_filter >= 0)
 		PE_SetPartsDrawFilter(parts_no, draw_filter);
 
@@ -2863,9 +2982,10 @@ static void pactex_apply_properties(struct ex_tree *node, int parts_no)
 	if (widget_type == PARTS_COMPONENT_VSCROLLBAR
 			|| (ain->version >= 14 && widget_type == PARTS_COMPONENT_HSCROLLBAR)) {
 		struct parts_scrollbar *sb = &parts_get(parts_no)->scrollbar;
-		sb->total = pactex_value_number(pactex_leaf_value(type_info,
+		sb->total = pactex_value_number(pactex_leaf_value_any(type_info, PACTEX_KEYS(
 				"\x91\x53\x91\xcc\x83\x58\x83\x4e\x83\x8d\x81\x5b\x83\x8b\x97\xca",
-				"\xc8\xab\xf3\x77\xa5\xb9\xa5\xaf\xa5\xed\xa9\x60\xa5\xeb\xc1\xbf"), 0);
+				"\xc8\xab\xf3\x77\xa5\xb9\xa5\xaf\xa5\xed\xa9\x60\xa5\xeb\xc1\xbf",
+				"\xc8\xab\xcc\xe5\xa5\xb9\xa5\xaf\xa5\xed\xa9\x60\xa5\xeb\xc1\xbf")), 0);
 		sb->view = pactex_value_number(pactex_leaf_value(type_info,
 				"\x95\x5c\x8e\xa6\x97\xca", "\xb1\xed\xca\xbe\xc1\xbf"), 0);
 		sb->pos = pactex_value_number(pactex_leaf_value(type_info,
@@ -2894,14 +3014,17 @@ static void pactex_apply_properties(struct ex_tree *node, int parts_no)
 					"\xc7\xb0\xa5\xb5\xa5\xa4\xa5\xba"), 0);		/* 前サイズ */
 			sb->next_size = pactex_value_number(pactex_cn_value(type_info,
 					"\xb4\xce\xa5\xb5\xa5\xa4\xa5\xba"), 0);		/* 次サイズ */
-			sb->button_move = pactex_value_number(pactex_cn_value(type_info,
-					"\xb0\xb4\xe2\x6f\xfc\x63\x93\xf4\xd2\xc6\x84\xd3\xc1\xbf"), 0); /* 按鈕點擊移動量 */
+			sb->button_move = pactex_value_number(pactex_cn_value_any(type_info,
+					"\xb0\xb4\xe2\x6f\xfc\x63\x93\xf4\xd2\xc6\x84\xd3\xc1\xbf",
+					"\xb0\xb4\xc5\xa5\xb5\xe3\xbb\xf7\xd2\xc6\xb6\xaf\xc1\xbf"), 0); /* 按鈕點擊移動量 / 按钮点击移动量 */
 			parts_scrollbar_set_names(parts_get(parts_no),
 					pactex_cn_string(type_info, "\xa3\xc3\xa3\xc7\xc3\xfb"),	/* ＣＧ名 */
-					pactex_cn_string(type_info,
-						"\xb8\xb2\xc9\x77\xa5\xd0\xa9\x60\xa3\xc3\xa3\xc7\xc3\xfb"),	/* 覆蓋バーＣＧ名 */
-					pactex_cn_string(type_info,
-						"\xb8\xb2\xc9\x77\xb1\xb3\xbe\xb0\xa3\xc3\xa3\xc7\xc3\xfb"));	/* 覆蓋背景ＣＧ名 */
+					pactex_cn_string_any(type_info,
+						"\xb8\xb2\xc9\x77\xa5\xd0\xa9\x60\xa3\xc3\xa3\xc7\xc3\xfb",
+						"\xb8\xb2\xb8\xc7\xa5\xd0\xa9\x60\xa3\xc3\xa3\xc7\xc3\xfb"),	/* 覆蓋バーＣＧ名 / 覆盖バーＣＧ名 */
+					pactex_cn_string_any(type_info,
+						"\xb8\xb2\xc9\x77\xb1\xb3\xbe\xb0\xa3\xc3\xa3\xc7\xc3\xfb",
+						"\xb8\xb2\xb8\xc7\xb1\xb3\xbe\xb0\xa3\xc3\xa3\xc7\xc3\xfb"));	/* 覆蓋背景ＣＧ名 / 覆盖背景ＣＧ名 */
 		}
 		/* 全體スクロール量サイズ連動 and 表示量サイズ連動 name the parts
 		 * whose size the two amounts follow (parts_scrollbar_total). The
@@ -2912,9 +3035,10 @@ static void pactex_apply_properties(struct ex_tree *node, int parts_no)
 		 * leaves the amount unlinked. SceneStandViewer's bar names its
 		 * Image and ImageRect. The SJIS keys are guesses. */
 		sb->total_link = sb->view_link = 0;
-		pactex_add_scroll_link(parts_no, false, pactex_leaf_value(type_info,
+		pactex_add_scroll_link(parts_no, false, pactex_leaf_value_any(type_info, PACTEX_KEYS(
 				"\x91\x53\x91\xcc\x83\x58\x83\x4e\x83\x8d\x81\x5b\x83\x8b\x97\xca\x83\x54\x83\x43\x83\x59\x98\x41\x93\xae",
-				"\xc8\xab\xf3\x77\xa5\xb9\xa5\xaf\xa5\xed\xa9\x60\xa5\xeb\xc1\xbf\xa5\xb5\xa5\xa4\xa5\xba\xdf\x42\x84\xd3"));
+				"\xc8\xab\xf3\x77\xa5\xb9\xa5\xaf\xa5\xed\xa9\x60\xa5\xeb\xc1\xbf\xa5\xb5\xa5\xa4\xa5\xba\xdf\x42\x84\xd3",
+				"\xc8\xab\xcc\xe5\xa5\xb9\xa5\xaf\xa5\xed\xa9\x60\xa5\xeb\xc1\xbf\xa5\xb5\xa5\xa4\xa5\xba\xdf\x42\x84\xd3")));
 		pactex_add_scroll_link(parts_no, true, pactex_leaf_value(type_info,
 				"\x95\x5c\x8e\xa6\x97\xca\x83\x54\x83\x43\x83\x59\x98\x41\x93\xae",
 				"\xb1\xed\xca\xbe\xc1\xbf\xa5\xb5\xa5\xa4\xa5\xba\xdf\x42\x84\xd3"));
@@ -2978,9 +3102,9 @@ static void pactex_apply_properties(struct ex_tree *node, int parts_no)
 		return;
 	}
 
-	/* --- Handle ボタン / 按鈕 (Button) type: load CG images for each state --- */
+	/* --- Handle ボタン / 按鈕 / 按钮 (Button) type: load CG images for each state --- */
 	if (ptype && (strstr(ptype, SJIS_BUTTON) || strstr(ptype, GBK_BUTTON)
-			|| strstr(ptype, GBK_CN_BUTTON))) {
+			|| strstr(ptype, GBK_CN_BUTTON) || strstr(ptype, GBK_SC_BUTTON))) {
 		/* ＣＧ名 is the base path (e.g. "システム／タイトル／ボタン／はじめから");
 		 * the widget shows <base>／普通 (SJIS ／通常), ／オン, ／ダウン, and
 		 * <base>／無効 while disabled (see parts_button_set_cg_name). */
@@ -3012,7 +3136,7 @@ static void pactex_apply_properties(struct ex_tree *node, int parts_no)
 	 */
 	int state_idx = 0;
 	bool low_level = ptype && (!strcmp(ptype, SJIS_MULTI_LEVEL) ||
-		!strcmp(ptype, "\xb5\xcd\xb5\xc8\xbc\x89\xb2\xbf\xbc\xfe")); /* 低等級部件 */
+		pactex_native_type(ptype) == PACTEX_EPT_LOW_LEVEL);
 	for (unsigned i = 0; i < type_info->nr_children; i++) {
 		struct ex_tree *state = &type_info->children[i];
 		if (state->is_leaf) continue;
@@ -3145,9 +3269,9 @@ static bool pactex_apply_native_type(struct ex_tree *node, struct parts *p)
 			"\x83\x86\x81\x5b\x83\x55\x83\x52\x83\x93\x83\x7c\x81\x5b\x83\x6c\x83\x93\x83\x67\x96\xbc");
 		if (uc && uc[0])
 			p->user_component_name = strdup(uc);
-		/* 數據 (SJIS データ): a key, value, key, value, ... string list. */
-		struct ex_list *data = pactex_get_list(type_info, "\x94\xb5\x93\xfe");
-		if (!data) data = pactex_get_list(type_info, "\x83\x66\x81\x5b\x83\x5e");
+		/* 數據 / 数据 (SJIS データ): a key, value, key, value, ... string list. */
+		struct ex_list *data = pactex_get_list_any(type_info, PACTEX_KEYS(
+			"\x94\xb5\x93\xfe", "\xca\xfd\xbe\xdd", "\x83\x66\x81\x5b\x83\x5e"));
 		for (unsigned i = 0; data && i + 1 < data->nr_items; i += 2) {
 			struct ex_value *k = &data->items[i].value, *v = &data->items[i + 1].value;
 			if (k->type == EX_STRING && v->type == EX_STRING && k->s && v->s)
@@ -3297,8 +3421,9 @@ static void end_key_erase(struct activity *act, int key)
 	act->nr_end_keys--;
 }
 
-/* 結束キー (GBK; the original's key 0x7db894). */
-static const char GBK_END_KEY[] = "\xbd\x59\xca\xf8\xa5\xad\xa9\x60";
+/* 結束キー / 结束キー (GBK; the original's key 0x7db894). */
+static const char GBK_END_KEY[]    = "\xbd\x59\xca\xf8\xa5\xad\xa9\x60";
+static const char GBK_SC_END_KEY[] = "\xbd\xe1\xca\xf8\xa5\xad\xa9\x60";
 
 /* The end key block: the activity loader 0x560210 reads the list block
  * 結束キー (0x5603df..0x56046f), before the activity tree, and inserts each
@@ -3310,6 +3435,8 @@ static const char GBK_END_KEY[] = "\xbd\x59\xca\xf8\xa5\xad\xa9\x60";
 static void pactex_read_end_keys(struct activity *act, struct ex *ex)
 {
 	struct ex_list *keys = ex_get_list(ex, GBK_END_KEY);
+	if (!keys)
+		keys = ex_get_list(ex, GBK_SC_END_KEY);
 	if (!keys)
 		return;
 	for (unsigned i = 0; i < keys->nr_items; i++) {

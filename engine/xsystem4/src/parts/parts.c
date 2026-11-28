@@ -3667,18 +3667,24 @@ static void parts_button_apply_cg(struct parts *parts)
 	static const char *const gbk[] = {
 		"\xa3\xaf\xc6\xd5\xcd\xa8", "\xa3\xaf\xa5\xaa\xa5\xf3",
 		"\xa3\xaf\xa5\xc0\xa5\xa6\xa5\xf3", "\xa3\xaf\x9f\x6f\x84\xbf" };
+	static const char *const gbk_disabled_sc = "\xa3\xaf\xce\xde\x84\xbf"; /* ／无効 */
 	static const char *const sjis[] = {
 		"\x81\x5e\x92\xca\x8f\xed", "\x81\x5e\x83\x49\x83\x93",
 		"\x81\x5e\x83\x5f\x83\x45\x83\x93", "\x81\x5e\x96\xb3\x8c\xf8" };
 	const char *base = parts->button_cg_name;
 	if (!base)
 		return;
-	const char *const *suffix = strstr(base, "\xa3\xaf") ? gbk : sjis;
+	const bool is_gbk = strstr(base, "\xa3\xaf") != NULL;
+	const char *const *suffix = is_gbk ? gbk : sjis;
 	char name[512];
 	bool disabled = false;
 	if (parts->button_disabled) {
 		snprintf(name, sizeof(name), "%s%s", base, suffix[3]);
 		disabled = asset_exists_by_name(ASSET_CG, name, NULL);
+		if (!disabled && is_gbk) {
+			snprintf(name, sizeof(name), "%s%s", base, gbk_disabled_sc);
+			disabled = asset_exists_by_name(ASSET_CG, name, NULL);
+		}
 	}
 	for (int st = 0; st < PARTS_NR_STATES; st++) {
 		if (!disabled)

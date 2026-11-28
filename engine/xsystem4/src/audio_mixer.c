@@ -1096,22 +1096,34 @@ void channel_close(struct channel *ch)
  * presumably reads it back when the engine is rebuilt, which was not traced).
  */
 // The group table of the main EX file and its columns, by their names in the
-// CN game's file (GBK): the table, the group number (an indexed int), the
-// voice group (int) and the default volume (float).
-#define GROUP_TABLE   "\xa3\xc5\xa3\xdf\xc2\x95\xd2\xf4\xc8\xba\xbd\x4d\xd4\x4f\xb6\xa8"
-#define GROUP_NUMBER  "\xc8\xba\xbd\x4d\xbe\x8e\xcc\x96"
-#define GROUP_VOICE   "\x8c\x9d\x8f\xea\xd5\x5a\xd2\xf4\xc8\xba\xbd\x4d\xbe\x8e\xcc\x96"
-#define GROUP_DEFAULT "\xc4\xac\xd5\x4a\xa5\xdc\xa5\xea\xa5\xe5\xa9\x60\xa5\xe0"
+// CN game's file (Traditional and Simplified GBK): the table, the group number
+// (an indexed int), the voice group (int) and the default volume (float).
+#define GROUP_TABLE      "\xa3\xc5\xa3\xdf\xc2\x95\xd2\xf4\xc8\xba\xbd\x4d\xd4\x4f\xb6\xa8"
+#define GROUP_TABLE_SC   "\xa3\xc5\xa3\xdf\xc9\xf9\xd2\xf4\xc8\xba\xd7\xe9\xd4\x4f\xb6\xa8"
+#define GROUP_NUMBER     "\xc8\xba\xbd\x4d\xbe\x8e\xcc\x96"
+#define GROUP_NUMBER_SC  "\xc8\xba\xd7\xe9\xb1\xe0\xba\xc5"
+#define GROUP_VOICE      "\x8c\x9d\x8f\xea\xd5\x5a\xd2\xf4\xc8\xba\xbd\x4d\xbe\x8e\xcc\x96"
+#define GROUP_VOICE_SC   "\x8c\x9d\x8f\xea\xd3\xef\xd2\xf4\xc8\xba\xd7\xe9\xb1\xe0\xba\xc5"
+#define GROUP_DEFAULT    "\xc4\xac\xd5\x4a\xa5\xdc\xa5\xea\xa5\xe5\xa9\x60\xa5\xe0"
+#define GROUP_DEFAULT_SC "\xc4\xac\xc8\xcf\xa5\xdc\xa5\xea\xa5\xe5\xa9\x60\xa5\xe0"
 #define VOLUME_SAV "Volume.sav"
 
 // The internal volumes of the main EX file (top-level floats; their names in
-// the CN game's file, GBK): a common prefix, then the movies', the BGM's, the
-// sound effects' and the voices'.
-#define INTERNAL_PREFIX "\xa3\xc5\xa3\xdf\xc2\x95\xd2\xf4\xa3\xdf\x83\xc8\xb2\xbf\xa5\xdc\xa5\xea\xa5\xe5\xa9\x60\xa5\xe0\xa3\xdf"
-#define INTERNAL_MOVIE INTERNAL_PREFIX "\xa5\xe0\xa9\x60\xa5\xd3\xa9\x60"
-#define INTERNAL_BGM   INTERNAL_PREFIX "\xa3\xc2\xa3\xc7\xa3\xcd"
-#define INTERNAL_SE    INTERNAL_PREFIX "\xd2\xf4\xd0\xa7"
-#define INTERNAL_VOICE INTERNAL_PREFIX "\xd5\x5a\xd2\xf4"
+// the CN game's file, Traditional and Simplified GBK): a common prefix, then
+// the movies', the BGM's, the sound effects' and the voices'.
+#define INTERNAL_PREFIX    "\xa3\xc5\xa3\xdf\xc2\x95\xd2\xf4\xa3\xdf\x83\xc8\xb2\xbf\xa5\xdc\xa5\xea\xa5\xe5\xa9\x60\xa5\xe0\xa3\xdf"
+#define INTERNAL_PREFIX_SC "\xa3\xc5\xa3\xdf\xc9\xf9\xd2\xf4\xa3\xdf\xc4\xda\xb2\xbf\xa5\xdc\xa5\xea\xa5\xe5\xa9\x60\xa5\xe0\xa3\xdf"
+#define INTERNAL_SUFFIX_MOVIE "\xa5\xe0\xa9\x60\xa5\xd3\xa9\x60"
+#define INTERNAL_SUFFIX_BGM   "\xa3\xc2\xa3\xc7\xa3\xcd"
+#define INTERNAL_SUFFIX_SE    "\xd2\xf4\xd0\xa7"
+#define INTERNAL_MOVIE    INTERNAL_PREFIX INTERNAL_SUFFIX_MOVIE
+#define INTERNAL_MOVIE_SC INTERNAL_PREFIX_SC INTERNAL_SUFFIX_MOVIE
+#define INTERNAL_BGM      INTERNAL_PREFIX INTERNAL_SUFFIX_BGM
+#define INTERNAL_BGM_SC   INTERNAL_PREFIX_SC INTERNAL_SUFFIX_BGM
+#define INTERNAL_SE       INTERNAL_PREFIX INTERNAL_SUFFIX_SE
+#define INTERNAL_SE_SC    INTERNAL_PREFIX_SC INTERNAL_SUFFIX_SE
+#define INTERNAL_VOICE    INTERNAL_PREFIX "\xd5\x5a\xd2\xf4"
+#define INTERNAL_VOICE_SC INTERNAL_PREFIX_SC "\xd3\xef\xd2\xf4"
 
 struct groups_config {
 	int nr;
@@ -1121,9 +1133,21 @@ struct groups_config {
 	float movie_internal;
 };
 
-static float groups_internal_key(struct ex *ex, const char *key, float dflt)
+static struct ex_value *groups_ex_get_any(struct ex *ex, const char *k1, const char *k2)
 {
-	struct ex_value *v = ex_get(ex, key);
+	struct ex_value *v = ex_get(ex, k1);
+	return v ? v : ex_get(ex, k2);
+}
+
+static int groups_col_any(struct ex_table *t, const char *n1, const char *n2)
+{
+	int c = ex_col_from_name(t, n1);
+	return c >= 0 ? c : ex_col_from_name(t, n2);
+}
+
+static float groups_internal_key(struct ex *ex, const char *key, const char *key_sc, float dflt)
+{
+	struct ex_value *v = groups_ex_get_any(ex, key, key_sc);
 	// Port strategy: a block of another type (the original's reader for one
 	// was not traced) takes the default, as a missing one does.
 	if (!v || v->type != EX_FLOAT || !isfinite(v->f))
@@ -1143,12 +1167,12 @@ static float groups_internal_key(struct ex *ex, const char *key, float dflt)
  */
 static void groups_read_internal(struct ex *ex, struct groups_config *gc)
 {
-	float bgm = groups_internal_key(ex, INTERNAL_BGM, 0.5f);
-	float se = groups_internal_key(ex, INTERNAL_SE, 0.5f);
-	float voice = groups_internal_key(ex, INTERNAL_VOICE, 1.0f);
+	float bgm = groups_internal_key(ex, INTERNAL_BGM, INTERNAL_BGM_SC, 0.5f);
+	float se = groups_internal_key(ex, INTERNAL_SE, INTERNAL_SE_SC, 0.5f);
+	float voice = groups_internal_key(ex, INTERNAL_VOICE, INTERNAL_VOICE_SC, 1.0f);
 	for (int g = 0; g < GROUPS_MAX; g++)
 		gc->internal[g] = g == 0 ? 1.0f : g == 1 ? bgm : g == 2 ? se : voice;
-	gc->movie_internal = groups_internal_key(ex, INTERNAL_MOVIE, 0.5f);
+	gc->movie_internal = groups_internal_key(ex, INTERNAL_MOVIE, INTERNAL_MOVIE_SC, 0.5f);
 }
 
 static int groups_row(struct ex_table *t, int col, int key)
@@ -1165,13 +1189,13 @@ static bool groups_read_config(struct groups_config *gc)
 	if (!ain || ain->version != 14 || !game_charset_is_gbk() || ain_get_library(ain, "MainEXFile") < 0)
 		return false;
 	struct ex *ex = main_ex_file();
-	struct ex_value *v = ex ? ex_get(ex, GROUP_TABLE) : NULL;
+	struct ex_value *v = ex ? groups_ex_get_any(ex, GROUP_TABLE, GROUP_TABLE_SC) : NULL;
 	if (!v || v->type != EX_TABLE || !v->t)
 		return false;
 	struct ex_table *t = v->t;
-	int c_no = ex_col_from_name(t, GROUP_NUMBER);
-	int c_voice = ex_col_from_name(t, GROUP_VOICE);
-	int c_default = ex_col_from_name(t, GROUP_DEFAULT);
+	int c_no = groups_col_any(t, GROUP_NUMBER, GROUP_NUMBER_SC);
+	int c_voice = groups_col_any(t, GROUP_VOICE, GROUP_VOICE_SC);
+	int c_default = groups_col_any(t, GROUP_DEFAULT, GROUP_DEFAULT_SC);
 	if (c_no < 0 || c_voice < 0 || c_default < 0 || !t->nr_rows
 	    || t->fields[c_no].type != EX_INT || !t->fields[c_no].is_index
 	    || t->fields[c_voice].type != EX_INT || t->fields[c_default].type != EX_FLOAT)
