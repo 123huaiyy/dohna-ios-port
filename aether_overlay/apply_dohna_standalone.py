@@ -3,11 +3,14 @@
 import argparse
 from pathlib import Path
 import re
+import shutil
 
 
 APP_NAME = "多娜多娜"
 BUNDLE_ID = "com.dohna.aether.ios"
 IPA_PREFIX = "DohnaDohna"
+DOHNA_ICONS_DIR = Path(__file__).resolve().parent / "icons"
+DOHNA_ICON_SIZES = (20, 29, 40, 58, 60, 76, 80, 87, 114, 120, 128, 136, 152, 167, 180, 192, 1024)
 
 
 def replace_once(text: str, old: str, new: str, label: str) -> str:
@@ -103,12 +106,22 @@ def patch_build_ios_sh(aether_dir: Path) -> None:
         'import plistlib, sys\n'
         'from pathlib import Path\n'
         'app = Path(sys.argv[1])\n'
+        'assert (app / "Assets.car").is_file(), f"Missing Assets.car in {app}"\n'
+        'leftover_aether = sorted(p.name for p in app.glob("AetherAppIcon*"))\n'
+        'assert not leftover_aether, f"Unexpected Aether icon assets remain: {leftover_aether}"\n'
+        'dohna_icons = sorted(p.name for p in app.glob("AppIcon*.png"))\n'
+        'assert dohna_icons, f"Expected compiled AppIcon*.png files in {app}"\n'
         'info_p = app / "Info.plist"\n'
         'if info_p.is_file():\n'
         '    info = plistlib.loads(info_p.read_bytes())\n'
         '    info["CFBundleDisplayName"] = "多娜多娜"\n'
         '    info["CFBundleName"] = "多娜多娜"\n'
+        '    for ikey in ("CFBundleIcons", "CFBundleIcons~ipad"):\n'
+        '        if isinstance(info.get(ikey), dict):\n'
+        '            info[ikey].pop("CFBundleAlternateIcons", None)\n'
         '    info_p.write_bytes(plistlib.dumps(info, sort_keys=False))\n'
+        '    print("AppIcon PNGs:", dohna_icons)\n'
+        '    print("CFBundleIcons:", info.get("CFBundleIcons"))\n'
         'for loc in app.glob("*.lproj/InfoPlist.strings"):\n'
         '    loc.write_bytes(plistlib.dumps({"CFBundleDisplayName": "多娜多娜", "CFBundleName": "多娜多娜"}, fmt=plistlib.FMT_BINARY))\n'
         'PY\n'
@@ -527,6 +540,107 @@ def patch_main_gd(aether_dir: Path) -> None:
     path.write_text(text, encoding="utf-8", newline="\n")
 
 
+DOHNA_STAGE_IOS_ICONS_CODE = '''
+def stage_dohna_ios_icons(project):
+    import struct
+    from stage_ios_game_import import app_target, configurations, read_project, write_project, write_plist
+
+    data = read_project(project)
+    objects = data["objects"]
+    _, app = app_target(data)
+    export = project.parent
+    icons_src = ASSETS / "icons"
+
+    appiconsets = sorted(export.rglob("*.appiconset"))
+    if not appiconsets:
+        raise FileNotFoundError(f"Expected Godot-exported AppIcon.appiconset under {export}")
+
+    copied = 0
+    for iconset in appiconsets:
+        for png in sorted(iconset.glob("*.png")):
+            raw = png.read_bytes()
+            if raw[:8] != b"\\x89PNG\\r\\n\\x1a\\n":
+                raise ValueError(f"Expected PNG header in {png}")
+            w, h = struct.unpack(">II", raw[16:24])
+            if w != h:
+                raise ValueError(f"Expected square app icon in {png}, got {w}x{h}")
+            candidate = icons_src / f"icon_{w}x{w}.png"
+            if candidate.is_file():
+                shutil.copyfile(candidate, png)
+            else:
+                master = icons_src / "app_store_1024x1024.png"
+                subprocess.run(["sips", "-z", str(w), str(h), str(master), "--out", str(png)], check=True)
+            copied += 1
+    if copied == 0:
+        raise RuntimeError(f"No PNG icon entries found inside {appiconsets}")
+
+    for config in configurations(objects, app):
+        settings = config["buildSettings"]
+        settings["ASSETCATALOG_COMPILER_APPICON_NAME"] = "AppIcon"
+        settings.pop("ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES", None)
+        info_path = export / settings["INFOPLIST_FILE"].strip('"')
+        if info_path.is_file():
+            info = plistlib.loads(info_path.read_bytes())
+            for key in ("CFBundleIcons", "CFBundleIcons~ipad"):
+                if isinstance(info.get(key), dict):
+                    info[key].pop("CFBundleAlternateIcons", None)
+            write_plist(info_path, info)
+
+    write_project(project, data)
+    print(f"Staged {copied} Dohna Dohna app icon PNG(s) across {len(appiconsets)} appiconset(s)")
+'''
+
+
+def patch_app_icons(aether_dir: Path) -> None:
+    if not DOHNA_ICONS_DIR.is_dir():
+        raise FileNotFoundError(f"Dohna icon directory not found: {DOHNA_ICONS_DIR}")
+    required = ["app_store_1024x1024.png", "icon.png", *(f"icon_{sz}x{sz}.png" for sz in DOHNA_ICON_SIZES)]
+    for name in required:
+        if not (DOHNA_ICONS_DIR / name).is_file():
+            raise FileNotFoundError(f"Missing Dohna icon asset: {DOHNA_ICONS_DIR / name}")
+
+    assets_dir = aether_dir / "apps/godot_app/assets"
+    replaced = 0
+    shutil.copyfile(DOHNA_ICONS_DIR / "icon.png", assets_dir / "icon.png")
+    replaced += 1
+    for folder in (assets_dir / "icons", assets_dir / "icons/astryx", assets_dir / "icons/astryx/dark"):
+        for existing in sorted(folder.glob("*.png")):
+            src = DOHNA_ICONS_DIR / existing.name
+            if not src.is_file():
+                raise FileNotFoundError(f"No Dohna replacement icon for {existing}")
+            shutil.copyfile(src, existing)
+            replaced += 1
+    if replaced < 50:
+        raise RuntimeError(f"Expected >= 50 replaced icon PNGs, only replaced {replaced}")
+
+    app_icon_gd = aether_dir / "apps/godot_app/scripts/ui/app_icon.gd"
+    gd_text = app_icon_gd.read_text(encoding="utf-8")
+    gd_text = replace_once(
+        gd_text,
+        "static func apply(astryx: bool, dark: bool = false) -> void:\n",
+        "static func apply(astryx: bool, dark: bool = false) -> void:\n"
+        "    if OS.get_name() == \"iOS\":\n"
+        "        return\n",
+        "app_icon.gd apply iOS guard",
+    )
+    app_icon_gd.write_text(gd_text, encoding="utf-8", newline="\n")
+
+    stage_icons_py = aether_dir / "tools/stage_app_icons.py"
+    stage_text = stage_icons_py.read_text(encoding="utf-8")
+    stage_text = replace_once(
+        stage_text,
+        "    stage_ios_icons(parser.parse_args().ios_project, liquid_glass=supports_icon_composer())",
+        "    stage_dohna_ios_icons(parser.parse_args().ios_project)",
+        "stage_app_icons.py main call",
+    )
+    stage_text = stage_text.replace(
+        "if __name__ == \"__main__\":",
+        DOHNA_STAGE_IOS_ICONS_CODE.lstrip("\n") + "\n\nif __name__ == \"__main__\":",
+        1,
+    )
+    stage_icons_py.write_text(stage_text, encoding="utf-8", newline="\n")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("aether_dir", type=Path)
@@ -535,6 +649,7 @@ def main() -> None:
         raise FileNotFoundError(f"Invalid Aether directory: {aether_dir}")
 
     patch_project_godot(aether_dir)
+    patch_app_icons(aether_dir)
     patch_export_presets(aether_dir)
     patch_stage_ios_game_import(aether_dir)
     patch_build_ios_sh(aether_dir)
