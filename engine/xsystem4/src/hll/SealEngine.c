@@ -25,7 +25,7 @@
 #include "asset_manager.h"
 #include "hll.h"
 #include "reign.h"
-#include "3d/3d_internal.h"
+#include "../3d/3d_internal.h"
 #include "sact.h"
 #include "vm.h"
 #include "vm/heap.h"
