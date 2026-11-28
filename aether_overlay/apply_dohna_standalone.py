@@ -124,6 +124,23 @@ def patch_build_ios_sh(aether_dir: Path) -> None:
         '    echo "Unsigned IPA created: $export_dir/$ipa_name"'
     )
     text = replace_once(text, old_pkg, new_pkg, "build_ios.sh package_ios_unsigned_ipa")
+    old_export = (
+        '    "$GODOT_BIN" --headless --recovery-mode --path "$GODOT_APP_DIR" \\\n'
+        '        "$EXPORT_MODE" "$EXPORT_PRESET" "$PROJECT_ROOT/out/godot/ios/$BUILD_TYPE_LOWER/Aether.xcodeproj"'
+    )
+    new_export = (
+        '    local export_log\n'
+        '    export_log="$(mktemp /tmp/aether-godot-export.XXXXXX)"\n'
+        '    "$GODOT_BIN" --headless --recovery-mode --path "$GODOT_APP_DIR" \\\n'
+        '        "$EXPORT_MODE" "$EXPORT_PRESET" "$PROJECT_ROOT/out/godot/ios/$BUILD_TYPE_LOWER/Aether.xcodeproj" 2>&1 | tee "$export_log"\n'
+        '    if grep -Eq \'SCRIPT ERROR:|Parse Error:|Failed to load script\' "$export_log"; then\n'
+        '        echo "Error: Godot script parse error detected during iOS export!" >&2\n'
+        '        rm -f "$export_log"\n'
+        '        return 1\n'
+        '    fi\n'
+        '    rm -f "$export_log"'
+    )
+    text = replace_once(text, old_export, new_export, "build_ios.sh godot export script gate")
     path.write_text(text, encoding="utf-8", newline="\n")
 
 
@@ -307,7 +324,8 @@ func _dohna_show_setup_overlay(detail_text: String = "") -> void:
         dohna_setup_layer.add_child(center)
 
         var card := PanelContainer.new()
-        card.custom_minimum_size = Vector2(560, 0)
+        var safe_w := _ui_safe_rect(get_viewport_rect().size).size.x
+        card.custom_minimum_size = Vector2(minf(520.0, maxf(260.0, safe_w - 36.0)), 0)
         card.add_theme_stylebox_override("panel", _dialog_style())
         center.add_child(card)
 
@@ -367,7 +385,7 @@ func _dohna_missing_help_text() -> String:
             var n := String(name_raw)
             if not n.begins_with(".") and n.to_lower() != "games":
                 found_items.append(n)
-    var preview := "空" if found_items.is_empty() else ", ".join(found_items.slice(0, 6))
+    var preview := "空" if found_items.is_empty() else ", ".join(PackedStringArray(found_items.slice(0, 6)))
     return (
         "未检测到《多娜多娜》游戏文件。\\n\\n"
         + "请将准备好的 DohnaDohna 游戏文件夹（含 dohnadohna.ain、AliceStart.ini、.afa 数据等）"
@@ -392,7 +410,7 @@ func _dohna_standalone_boot() -> void:
     var game := _game_info_from_path(root)
     game["engine"] = RUNTIME_XSYSTEM4
     if String(game.get("title", "")).is_empty():
-        game["title"] = APP_NAME
+        game["title"] = APP_DISPLAY_NAME
     selected_game = game
     if shell_root != null:
         shell_root.visible = false
