@@ -11,6 +11,7 @@ OVERLAY_CMAKE="$PORT_ROOT/aether_overlay/CMakeLists.xsystem4_runtime.txt"
 STANDALONE_PATCH="$PORT_ROOT/aether_overlay/apply_dohna_standalone.py"
 
 AETHER_DIR="${1:-${AETHER_DIR:-$PORT_ROOT/.aether}}"
+AETHER_REF="${AETHER_REF:-eaaccc78965ca95efce94525014359ad94e7603b}"
 BUILD_TYPE="${BUILD_TYPE:-release}"
 JOBS="${JOBS:-4}"
 
@@ -26,8 +27,12 @@ if [[ ! -f "$XS4_DIR/src/embedded.c" ]]; then
 fi
 
 if [[ ! -d "$AETHER_DIR/.git" ]]; then
-    echo "Cloning AetherKiri/Aether into $AETHER_DIR ..."
-    git clone --depth 1 https://github.com/AetherKiri/Aether.git "$AETHER_DIR"
+    echo "Cloning AetherKiri/Aether ($AETHER_REF) into $AETHER_DIR ..."
+    mkdir -p "$AETHER_DIR"
+    git -C "$AETHER_DIR" init
+    git -C "$AETHER_DIR" remote add origin https://github.com/AetherKiri/Aether.git
+    git -C "$AETHER_DIR" fetch --depth 1 origin "$AETHER_REF"
+    git -C "$AETHER_DIR" checkout FETCH_HEAD
 fi
 
 pushd "$AETHER_DIR" >/dev/null

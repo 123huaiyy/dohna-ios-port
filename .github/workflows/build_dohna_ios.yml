@@ -44,6 +44,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: AetherKiri/Aether
+          ref: eaaccc78965ca95efce94525014359ad94e7603b
           path: aether
           submodules: false
 
