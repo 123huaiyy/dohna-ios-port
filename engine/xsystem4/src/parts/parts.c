@@ -1336,6 +1336,31 @@ bool parts_cg_set_by_index(struct parts *parts, struct parts_cg *cg, int cg_no)
 	return _parts_cg_set(parts, cg, asset_cg_load(cg_no), cg_no, NULL);
 }
 
+static struct cg *load_savedir_cg(const char *rel)
+{
+	while (*rel == '/' || *rel == '\\')
+		rel++;
+	if (!strncmp(rel, "SaveData\\", 9) || !strncmp(rel, "SaveData/", 9)) {
+		rel += 9;
+		while (*rel == '/' || *rel == '\\')
+			rel++;
+	}
+	char *path = savedir_path(rel);
+	struct cg *cg = cg_load_file(path);
+	free(path);
+	if (!cg && config.game_dir && *config.game_dir) {
+		size_t rel_len = strlen(rel);
+		char *game_rel = xmalloc(9 + rel_len + 1);
+		memcpy(game_rel, "SaveData/", 9);
+		memcpy(game_rel + 9, rel, rel_len + 1);
+		char *fallback = gamedir_path(game_rel);
+		cg = cg_load_file(fallback);
+		free(fallback);
+		free(game_rel);
+	}
+	return cg;
+}
+
 bool parts_cg_set(struct parts *parts, struct parts_cg *parts_cg, struct string *cg_name)
 {
 	assert(cg_name && *(cg_name->text) != '\0');
@@ -1343,10 +1368,8 @@ bool parts_cg_set(struct parts *parts, struct parts_cg *parts_cg, struct string 
 	struct cg *cg;
 	// strncmp: a name can be shorter than the prefix.
 	if (!strncmp(cg_name->text, "<save>", 6)) {
-		char *path = savedir_path(cg_name->text + 6);
-		cg = cg_load_file(path);
+		cg = load_savedir_cg(cg_name->text + 6);
 		no = 0;
-		free(path);
 	} else {
 		cg = asset_cg_load_by_name(cg_name->text, &no);
 	}

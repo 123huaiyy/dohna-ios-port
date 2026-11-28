@@ -185,6 +185,6 @@ jobs:
       - name: Upload unsigned IPA artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dohna-aether-ios-${{ inputs.build_type || 'release' }}-unsigned-ipa
-          path: aether/out/godot/ios/${{ inputs.build_type || 'release' }}/Aether-*-Unsigned.ipa
+          name: dohna-standalone-ios-${{ inputs.build_type || 'release' }}-unsigned-ipa
+          path: aether/out/godot/ios/${{ inputs.build_type || 'release' }}/*.ipa
           retention-days: 14

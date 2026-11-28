@@ -33,7 +33,7 @@
 
 static bool FileOperation_ExistFile(struct string *file_name)
 {
-	char *path = unix_path(file_name->text);
+	char *path = xsystem4_resolve_file_path(file_name->text, false);
 	ustat s;
 	bool result = stat_utf8(path, &s) == 0 && S_ISREG(s.st_mode);
 	free(path);
@@ -44,8 +44,8 @@ static bool FileOperation_ExistFile(struct string *file_name)
 
 static bool FileOperation_CopyFile(struct string *dest_file_name, struct string *src_file_name)
 {
-	char *dest = unix_path(dest_file_name->text);
-	char *src = unix_path(src_file_name->text);
+	char *dest = xsystem4_resolve_file_path(dest_file_name->text, true);
+	char *src = xsystem4_resolve_file_path(src_file_name->text, false);
 	bool result = file_copy(src, dest);
 	free(src);
 	free(dest);
@@ -58,7 +58,7 @@ static bool FileOperation_CopyFile(struct string *dest_file_name, struct string 
 
 static bool FileOperation_GetFileSize(struct string *file_name, int *size)
 {
-	char *path = unix_path(file_name->text);
+	char *path = xsystem4_resolve_file_path(file_name->text, false);
 	ustat s;
 	if (stat_utf8(path, &s) < 0) {
 		WARNING("stat(\"%s\"): %s", display_utf0(path), strerror(errno));
@@ -77,7 +77,7 @@ static bool FileOperation_GetFileSize(struct string *file_name, int *size)
 
 static bool FileOperation_ExistFolder(struct string *folder_name)
 {
-	char *path = unix_path(folder_name->text);
+	char *path = xsystem4_resolve_file_path(folder_name->text, false);
 	bool result = is_directory(path);
 	free(path);
 	return result;
@@ -85,7 +85,7 @@ static bool FileOperation_ExistFolder(struct string *folder_name)
 
 static bool FileOperation_CreateFolder(struct string *folder_name)
 {
-	char *path = unix_path(folder_name->text);
+	char *path = xsystem4_resolve_file_path(folder_name->text, true);
 	bool result = mkdir_p(path) == 0;
 	if (!result)
 		WARNING("mkdir_p(%s): %s", path, strerror(errno));
@@ -139,7 +139,7 @@ static bool rmtree(const char *path)
 
 static bool FileOperation_DeleteFolder(struct string *folder_name)
 {
-	char *path = unix_path(folder_name->text);
+	char *path = xsystem4_resolve_file_path(folder_name->text, true);
 	bool result = rmtree(path);
 	free(path);
 	return result;
@@ -147,7 +147,7 @@ static bool FileOperation_DeleteFolder(struct string *folder_name)
 
 static bool get_file_list(struct string *folder_name, struct page **out, bool folders)
 {
-	char *dir_name = unix_path(folder_name->text);
+	char *dir_name = xsystem4_resolve_file_path(folder_name->text, false);
 
 	UDIR *d = opendir_utf8(dir_name);
 	if (!d) {

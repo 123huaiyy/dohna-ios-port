@@ -369,6 +369,67 @@ char *savedir_path(const char *path)
 	return resolve_path(config.save_dir, path);
 }
 
+static const char *strip_savedata_prefix(const char *rel)
+{
+	while (rel[0] == '.' && rel[1] == '/')
+		rel += 2;
+	while (*rel == '/')
+		rel++;
+	if (!strncmp(rel, "SaveData", 8) && (rel[8] == '\0' || rel[8] == '/')) {
+		rel += 8;
+		while (*rel == '/')
+			rel++;
+		return rel;
+	}
+	return NULL;
+}
+
+/*
+ * Resolve HLL file/folder paths (FileOperation / TextFile). On embedded hosts
+ * (e.g. iOS) CWD is not the game or save folder, and games often prepend
+ * system.GetSaveFolderName() ("SaveData"). Route SaveData/... to config.save_dir
+ * (with fallback to config.game_dir/SaveData/... on reads) and other relative
+ * paths to config.game_dir when present.
+ */
+char *xsystem4_resolve_file_path(const char *path, bool for_write)
+{
+	char *utf = unix_path(path ? path : "");
+	if (is_absolute_path(utf))
+		return utf;
+
+	const char *rel = utf;
+	while (rel[0] == '.' && rel[1] == '/')
+		rel += 2;
+
+	const char *save_sub = strip_savedata_prefix(rel);
+	if (save_sub && config.save_dir && *config.save_dir) {
+		char *save_cand = *save_sub ? path_join(config.save_dir, save_sub) : xstrdup(config.save_dir);
+		if (!for_write && !file_exists(save_cand) && config.game_dir && *config.game_dir) {
+			char *game_cand = *rel ? path_join(config.game_dir, rel) : xstrdup(config.game_dir);
+			if (file_exists(game_cand)) {
+				free(save_cand);
+				free(utf);
+				return game_cand;
+			}
+			free(game_cand);
+		}
+		free(utf);
+		return save_cand;
+	}
+
+	if (config.game_dir && *config.game_dir) {
+		char *game_cand = *rel ? path_join(config.game_dir, rel) : xstrdup(config.game_dir);
+		if (!for_write && !file_exists(game_cand) && file_exists(utf)) {
+			free(game_cand);
+			return utf;
+		}
+		free(utf);
+		return game_cand;
+	}
+
+	return utf;
+}
+
 /*
  * Save files created before GBK names were decoded keep their sjis2utf names.
  * The Chinese game builds its non-ASCII file names only from AIN strings (the

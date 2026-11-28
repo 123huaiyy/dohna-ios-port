@@ -43,9 +43,8 @@ static bool TextFile_Close(int handle)
 // them like every other game path. SJIS games keep the raw fopen.
 static FILE *text_file_open(struct string *fileName, const char *mode)
 {
-	if (!game_charset_is_gbk())
-		return fopen(fileName->text, mode);
-	char *path = unix_path(fileName->text);
+	bool for_write = mode && (mode[0] == 'w' || mode[0] == 'a' || strchr(mode, '+') != NULL);
+	char *path = xsystem4_resolve_file_path(fileName->text, for_write);
 	FILE *fp = file_open_utf8(path, mode);
 	free(path);
 	return fp;

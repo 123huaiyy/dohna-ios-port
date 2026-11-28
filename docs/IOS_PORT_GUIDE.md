@@ -46,22 +46,23 @@
 ## 三、目录结构与交付文件
 
 - `engine/xsystem4/`：已应用上述全部补丁的 `USADA-KARROT/xsystem4` + `libsys4` 源码。
-- `aether_overlay/CMakeLists.xsystem4_runtime.txt`：替换 `Aether/bridge/xsystem4_runtime/CMakeLists.txt` 的构建定义。
-- `scripts/build_dohna_ios.sh`：macOS 本地打包脚本，自动拉取 `AetherKiri/Aether`、覆盖运行时与 CMake 配置并构建无签名 `.ipa`。
-- `.github/workflows/build_dohna_ios.yml`：无 Mac 电脑时的 GitHub Actions 云打包工作流（`macos-15`）。
-- `scripts/prepare_game_for_ios.ps1`：Windows 游戏数据包精简整理脚本（只复制运行时必需文件，剔除 `.exe`/`.dll`/修改器与备份文件）。
+- `aether_overlay/CMakeLists.xsystem4_runtime.txt`：替换 `Aether/bridge/xsystem4_runtime/CMakeLists.txt` 的构建定义，补全 `zlib.c`、`OpenGLES` 与 `iconv` 链接。
+- `aether_overlay/apply_dohna_standalone.py`：构建前将 Aether 壳层打包为独立《多娜多娜》应用（修改 `CFBundleDisplayName` / 包 ID，跳过协议弹窗与多游戏主界面，开机自动扫描 `user://`、`user://<子目录>`、`user://Games/<子目录>` 并直接进入《多娜多娜》，同时自动同步 `SaveData` 与 `User/` 自定义人物）。
+- `scripts/build_dohna_ios.sh`：macOS 本地打包脚本，自动拉取 `AetherKiri/Aether`、覆盖运行时与独立应用补丁并构建无签名 `DohnaDohna-Release-Unsigned.ipa`。
+- `.github/workflows/build_dohna_ios.yml`：无 Mac 电脑时的 GitHub Actions 云打包工作流（默认 `macos-26`）。
+- `scripts/prepare_game_for_ios.ps1`：Windows 游戏数据包精简整理脚本（只复制运行时必需文件，可选带入存档与 `User` 捏人，剔除 `.exe`/`.dll`/修改器与备份文件）。
 
 ---
 
-## 四、构建 iOS `.ipa`（需要 macOS + Xcode 环境）
+## 四、构建独立版《多娜多娜》`.ipa`（需要 macOS + Xcode 环境）
 
 > **环境边界说明**：当前开发主机为 Windows，不具备 Apple `iphoneos.sdk`、`ld64` 与 Xcode 工具链，因此**无法在 Windows 本地直接链接 ARM64 Mach-O 二进制并生成 `.ipa`**。下面提供两种真实构建方式：
 
 ### 方式 A：没有 Mac —— 使用 GitHub Actions 云端打包（推荐）
 
 1. 将本仓库推送到你的 GitHub 仓库（注意不要提交任何游戏本体资源文件）。
-2. 打开仓库的 **Actions** -> 选择 **Build Dohna Dohna iOS IPA** -> 点击 **Run workflow**（`build_type` 选 `release`，`runner` 默认 `macos-15`；注意 `Aether` 需要 Xcode + Godot 4.7.2，如镜像版本变更可在 workflow 中调整 runner 或 Xcode）。
-3. 构建完成后，在 Workflow Run 页面底部的 Artifacts 下载 **`dohna-aether-ios-release-unsigned-ipa`**（内含 `Aether-Release-Unsigned.ipa`）。
+2. 打开仓库的 **Actions** -> 选择 **Build Dohna Dohna iOS IPA** -> 点击 **Run workflow**（`build_type` 选 `release`，`runner` 默认 `macos-26`）。
+3. 构建完成后，在 Workflow Run 页面底部的 Artifacts 下载 **`dohna-standalone-ios-release-unsigned-ipa`**（内含 `DohnaDohna-Release-Unsigned.ipa`）。
 
 ### 方式 B：有 Mac —— 本地直接编译
 
@@ -73,7 +74,7 @@ chmod +x scripts/build_dohna_ios.sh
 ./scripts/build_dohna_ios.sh
 ```
 
-生成的安装包路径位于：`.aether/out/godot/ios/release/Aether-Release-Unsigned.ipa`。
+生成的独立版安装包路径位于：`.aether/out/godot/ios/release/DohnaDohna-Release-Unsigned.ipa`。
 
 ---
 
@@ -85,22 +86,23 @@ chmod +x scripts/build_dohna_ios.sh
 
 ```powershell
 # 预览将提取的文件清单
-.\scripts\prepare_game_for_ios.ps1 -SourceDir "<path-to-DohnaDohna-v1.1>" -DryRun
+.\scripts\prepare_game_for_ios.ps1 -SourceDir "<path-to-DohnaDohna-v1.1>" -IncludeSaveData -IncludeUserCharacters -DryRun
 
-# 正式输出到 .\ios_game_payload\DohnaDohna（包含自定义角色可加 -IncludeUserCharacters）
-.\scripts\prepare_game_for_ios.ps1 -SourceDir "<path-to-DohnaDohna-v1.1>"
+# 正式输出到 .\ios_game_payload\DohnaDohna（同时带入全CG存档与附件 User 捏人）
+.\scripts\prepare_game_for_ios.ps1 -SourceDir "<path-to-DohnaDohna-v1.1>" -IncludeSaveData -IncludeUserCharacters
 ```
 
-脚本仅复制以下 9 个运行时必需文件并生成 `.xsys4rc`（`encoding = "gbk"`），不复制 `.exe`、`Mai@KF.dll`、修改器及备份目录：
+脚本仅复制以下 9 个运行时必需文件、生成 `.xsys4rc`（`encoding = "gbk"`）并同步存档/自定义人物到 `SaveData` 与 `savedata\xsystem4\<游戏ID>`，不复制 `.exe`、`Mai@KF.dll`、修改器及备份目录：
 - `AliceStart.ini`、`dohnadohna.ain`、`dohnadohnaCG.afa`、`dohnadohnaPact.afa`、`dohnadohnaSound.afa`、`dohnadohnaVoice.afa`、`dohnadohnaEx.ex`
 - `Data\Shader.slk`
 - `Movie\Op.apeg`
-- `.xsys4rc`（自动生成）
+- `.xsys4rc`、`SaveData\`、`savedata\xsystem4\<游戏ID>\`（自动生成/带入）
 
 ### 2. 侧载到 iPhone / iPad
 
-1. 使用 **SideStore** / **AltStore** / **Sideloadly**（免费 Apple ID 7 天重签，或开发者证书 / TrollStore 永久安装）将 `Aether-Release-Unsigned.ipa` 安装到 iOS 设备。
-2. 将 Windows 生成的 `DohnaDohna` 文件夹打包为 `.zip` 或通过隔空投送 / USB 传入 iPhone「文件（Files）」App，打开 Aether 并导入该游戏目录即可启动。
+1. 使用 **Sideloadly** / **AltStore** / **SideStore**（免费 Apple ID 7 天重签，或开发者证书 / **TrollStore** 永久安装）将 `DohnaDohna-Release-Unsigned.ipa` 安装到 iOS 设备（安装后桌面图标名称直接显示为 **多娜多娜**）。
+2. 将 Windows 生成的 `DohnaDohna` 文件夹直接复制到 iPhone **「文件」->「我的 iPhone」->「多娜多娜」**（或通过电脑爱思助手/iTunes 文件共享导入该 App 根目录）。
+3. 打开 **多娜多娜** App，程序会自动跳过原管理界面并直接启动游戏；如果尚未放入文件，则会提示放置位置并提供「重新检测并启动」按钮。
 
 ---
 

@@ -8,6 +8,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PORT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 XS4_DIR="$PORT_ROOT/engine/xsystem4"
 OVERLAY_CMAKE="$PORT_ROOT/aether_overlay/CMakeLists.xsystem4_runtime.txt"
+STANDALONE_PATCH="$PORT_ROOT/aether_overlay/apply_dohna_standalone.py"
 
 AETHER_DIR="${1:-${AETHER_DIR:-$PORT_ROOT/.aether}}"
 BUILD_TYPE="${BUILD_TYPE:-release}"
@@ -56,6 +57,11 @@ if [[ ! -f "$AETHER_DIR/bridge/xsystem4_runtime/CMakeLists.txt.orig" ]]; then
        "$AETHER_DIR/bridge/xsystem4_runtime/CMakeLists.txt.orig"
 fi
 cp "$OVERLAY_CMAKE" "$AETHER_DIR/bridge/xsystem4_runtime/CMakeLists.txt"
+
+if [[ -f "$STANDALONE_PATCH" ]]; then
+    echo "==> Applying standalone Dohna Dohna branding and auto-boot overlay"
+    python3 "$STANDALONE_PATCH" "$AETHER_DIR"
+fi
 
 if command -v ccache >/dev/null 2>&1; then
     export CMAKE_C_COMPILER_LAUNCHER="${CMAKE_C_COMPILER_LAUNCHER:-ccache}"

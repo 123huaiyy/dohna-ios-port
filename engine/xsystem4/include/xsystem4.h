@@ -96,6 +96,7 @@ char *unix_path(const char *path);
 char *gamedir_path(const char *path);
 char *gamedir_path_icase(const char *path);
 char *savedir_path(const char *path);
+char *xsystem4_resolve_file_path(const char *path, bool for_write);
 
 void get_date(int *year, int *month, int *mday, int *wday);
 void get_time(int *hour, int *min, int *sec, int *ms);
